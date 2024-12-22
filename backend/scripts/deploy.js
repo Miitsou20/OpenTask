@@ -23,15 +23,23 @@ async function main() {
   await sbtAchievement.waitForDeployment();
   console.log("SoulBoundAchievement deployed to:", await sbtAchievement.getAddress());
 
-  // 4. Deploy TaskMarketplace
+  // 4. Deploy SoulBoundRedflag
+  const SoulBoundRedflag = await hre.ethers.getContractFactory("SoulBoundRedflag");
+  const sbtRedflag = await SoulBoundRedflag.deploy();
+  await sbtRedflag.waitForDeployment();
+  console.log("SoulBoundRedflag deployed to:", await sbtRedflag.getAddress());
+
+  // 5. Deploy TaskMarketplace
   const TaskMarketplace = await hre.ethers.getContractFactory("TaskMarketplace");
   console.log("Deploying TaskMarketplace with SBT Role:", await sbtRole.getAddress());
   console.log("Deploying TaskMarketplace with SBT Achievement:", await sbtAchievement.getAddress());
+  console.log("Deploying TaskMarketplace with SBT Redflag:", await sbtRedflag.getAddress());
   console.log("Deploying TaskMarketplace with Treasury:", await treasury.getAddress());
   
   const marketplace = await TaskMarketplace.deploy(
     await sbtRole.getAddress(),
     await sbtAchievement.getAddress(),
+    await sbtRedflag.getAddress(),
     await treasury.getAddress()
   );
   await marketplace.waitForDeployment();
@@ -41,6 +49,7 @@ async function main() {
   console.log("\nTransferring ownership of SBT contracts to TaskMarketplace...");
   await sbtRole.transferOwnership(await marketplace.getAddress());
   await sbtAchievement.transferOwnership(await marketplace.getAddress());
+  await sbtRedflag.transferOwnership(await marketplace.getAddress());
   console.log("Ownership transferred successfully");
 
   // 6. Post-deployment verifications
@@ -49,12 +58,13 @@ async function main() {
   const marketplaceAddress = await marketplace.getAddress();
   const sbtRoleOwner = await sbtRole.owner();
   const sbtAchievementOwner = await sbtAchievement.owner();
-
+  const sbtRedflagOwner = await sbtRedflag.owner();
   console.log("SBT Role owner:", sbtRoleOwner);
   console.log("SBT Achievement owner:", sbtAchievementOwner);
+  console.log("SBT Redflag owner:", sbtRedflagOwner);
   console.log("Expected owner:", marketplaceAddress);
 
-  if (sbtRoleOwner !== marketplaceAddress || sbtAchievementOwner !== marketplaceAddress) {
+  if (sbtRoleOwner !== marketplaceAddress || sbtAchievementOwner !== marketplaceAddress || sbtRedflagOwner !== marketplaceAddress) {
     console.error("❌ Error: Ownership was not properly transferred");
     process.exit(1);
   }

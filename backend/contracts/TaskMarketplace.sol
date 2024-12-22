@@ -30,11 +30,14 @@ contract TaskMarketplace is ReentrancyGuard {
     uint256 private constant PROTOCOL_FEE = 3;    // 3% for the protocol
     uint256 private constant MAX_DEVELOPER_CANDIDATES = 15;
     uint256 private constant MAX_AUDITOR_CANDIDATES = 15;
+    uint256 private constant MAX_TASKS_PER_REQUEST = 100;
 
     struct Task {
+        uint256 id;
         address provider;
         address developer;
         address[] auditors;
+        string title;
         string description;
         uint256 reward;
         uint256 auditorReward;
@@ -68,8 +71,16 @@ contract TaskMarketplace is ReentrancyGuard {
     mapping(uint256 => mapping(address => AuditVote)) public auditVotes;
     mapping(uint256 => mapping(address => bool)) public firstThreeVotes;
     mapping(uint256 => address[3]) public firstThreeVoters;
+    mapping(address => uint256[]) private providerTasks;
+    mapping(address => uint256[]) private developerTasks;
+    mapping(address => uint256[]) private auditorTasks;
 
-    event TaskCreated(uint256 indexed taskId, address indexed provider, uint256 reward);
+    event TaskCreated(
+        uint256 indexed taskId,
+        address indexed provider,
+        string title,
+        uint256 reward
+    );
     event TaskStarted(uint256 indexed taskId, uint256 reward, address escrowAddress);
     event TaskStatusUpdated(uint256 indexed taskId, TaskStatus status);
     event TaskCancelled(uint256 indexed taskId);
@@ -140,25 +151,34 @@ contract TaskMarketplace is ReentrancyGuard {
     /**
      * @notice Creates a new task in the marketplace
      * @dev Only callable by task providers
-     * @param description Task description
-     * @param deadline Task deadline timestamp
-     * @param reward Task reward in wei
+     * @param _title Title of the task
+     * @param _description Description of the task
+     * @param _deadline Deadline for task completion
+     * @param _reward Reward amount in ETH
      */
-    function createTask(string memory description, uint256 deadline, uint256 reward) public onlyTaskProvider {
-        require(reward > 0, "Reward must be greater than 0");
-        
-        uint256 taskId = taskCount++;
-        Task storage newTask = tasks[taskId];
-        
-        newTask.provider = msg.sender;
-        newTask.description = description;
-        newTask.reward = reward;
-        newTask.developerReward = (reward * DEVELOPER_SHARE) / 100;
-        newTask.auditorReward = (reward * AUDITOR_SHARE) / 100;
-        newTask.status = TaskStatus.Created;
-        newTask.deadline = deadline;
+    function createTask(string memory _title, string memory _description, uint256 _deadline, uint256 _reward) public onlyTaskProvider {
+        require(_reward > 0, "Reward must be greater than 0");
+        require(_deadline > block.timestamp, "Deadline must be in the future");
+        require(bytes(_title).length > 0, "Title cannot be empty");
+        require(bytes(_description).length > 0, "Description cannot be empty");
 
-        emit TaskCreated(taskId, msg.sender, reward);
+        uint256 taskId = taskCount;
+        Task storage task = tasks[taskId];
+
+        task.id = taskId;
+        task.provider = msg.sender;
+        task.title = _title;
+        task.description = _description;
+        task.reward = _reward;
+        task.deadline = _deadline;
+        task.status = TaskStatus.Created;
+        task.developerReward = (_reward * DEVELOPER_SHARE) / 100;
+        task.auditorReward = (_reward * AUDITOR_SHARE) / 100;
+
+        providerTasks[msg.sender].push(taskId);
+        taskCount++;
+
+        emit TaskCreated(taskId, msg.sender, _title, _reward);
     }
 
     /**
@@ -203,6 +223,8 @@ contract TaskMarketplace is ReentrancyGuard {
         require(_contains(developerCandidates[taskId], developer), "Developer has not applied for this task");
         
         task.developer = developer;
+        developerTasks[developer].push(taskId);
+        
         emit DeveloperAssigned(taskId, developer);
     }
 
@@ -362,6 +384,7 @@ contract TaskMarketplace is ReentrancyGuard {
 
         vote.hasVoted = true;
         vote.supportsDeveloper = supportsDeveloper;
+        auditorTasks[msg.sender].push(taskId);
         
         emit AuditorVoteSubmitted(taskId, msg.sender, supportsDeveloper);
         
@@ -516,5 +539,49 @@ contract TaskMarketplace is ReentrancyGuard {
             }
         }
         return false;
+    }
+
+    /**
+     * @notice Gets all tasks for a specific provider
+     * @param provider Address of the task provider
+     * @return taskIds Array of task IDs created by the provider
+     */
+    function getTasksByProvider(address provider) external view returns (uint256[] memory) {
+        return providerTasks[provider];
+    }
+
+    /**
+     * @notice Gets tasks for a specific developer
+     * @param developer Address of the developer
+     * @return taskIds Array of task IDs assigned to the developer
+     */
+    function getTasksByDeveloper(address developer) external view returns (uint256[] memory) {
+        return developerTasks[developer];
+    }
+
+    /**
+     * @notice Gets tasks for a specific auditor
+     * @param auditor Address of the auditor
+     * @return taskIds Array of task IDs where the auditor is assigned
+     */
+    function getTasksByAuditor(address auditor) external view returns (uint256[] memory) {
+        return auditorTasks[auditor];
+    }
+
+    /**
+     * @notice Gets multiple tasks details at once
+     * @param taskIds Array of task IDs to fetch
+     * @return Task[] Array of task details
+     */
+    function getTasksDetails(uint256[] calldata taskIds) external view returns (Task[] memory) {
+        require(taskIds.length <= MAX_TASKS_PER_REQUEST, "Too many tasks requested");
+        Task[] memory tasksList = new Task[](taskIds.length);
+        uint256 length = taskIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            require(taskIds[i] < taskCount, "Invalid task ID");
+            tasksList[i] = tasks[taskIds[i]];
+        }
+        
+        return tasksList;
     }
 } 

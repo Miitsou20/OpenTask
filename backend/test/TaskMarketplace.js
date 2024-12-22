@@ -96,9 +96,9 @@ describe("TaskMarketplace", function () {
         });
 
         it("Should create task with correct parameters", async function () {
-            await expect(taskMarketplace.connect(provider).createTask("Test Task",deadline,reward))
+            await expect(taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward))
                 .to.emit(taskMarketplace, "TaskCreated")
-                .withArgs(taskId, provider.address, reward);
+                .withArgs(taskId, provider.address, "Title: Test Task", reward);
 
             const task = await taskMarketplace.tasks(taskId);
             expect(task.provider).to.equal(provider.address);
@@ -106,15 +106,26 @@ describe("TaskMarketplace", function () {
             expect(task.status).to.equal(TaskStatus.Created);
         });
         it("Should calculate rewards correctly", async function () {
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             const task = await taskMarketplace.tasks(taskId);
-            
             expect(task.developerReward).to.equal((reward * BigInt(67)) / BigInt(100));
             expect(task.auditorReward).to.equal((reward * BigInt(10)) / BigInt(100));
         });
         it("Should not allow creating task with zero reward", async function () {
-            await expect(taskMarketplace.connect(provider).createTask("Test Task", deadline, 0))
+            await expect(taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, 0))
                 .to.be.revertedWith("Reward must be greater than 0");
+        });
+        it("Should add the task id to the provider's tasks", async function () {
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
+            const tasks = await taskMarketplace.getTasksByProvider(provider.address);
+            expect(tasks[0]).to.equal(taskId);
+        });
+        it("Should return the correct taskDetails", async function () {
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
+            const taskDetails = await taskMarketplace.getTasksDetails([taskId]);
+            expect(taskDetails[0].description).to.equal("Description: Test Task");
+            expect(taskDetails[0].reward).to.equal(reward);
+            expect(taskDetails[0].deadline).to.equal(deadline);
         });
     });
 
@@ -125,7 +136,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
         });
         it("Should allow developer to apply", async function () {
             await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId))
@@ -208,7 +219,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
         });
         it("Should not allow non-provider to assign developer", async function () {
             await expect(taskMarketplace.connect(auditor1).assignDeveloper(taskId, developer.address)).to.be.revertedWith("Sender must be a TaskProvider");
@@ -233,6 +244,12 @@ describe("TaskMarketplace", function () {
             const task = await taskMarketplace.tasks(taskId);
             expect(task.developer).to.equal(developer.address);
         });
+        it("Should add the task id to the developer's tasks", async function () {
+            await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
+            await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
+            const tasks = await taskMarketplace.getTasksByDeveloper(developer.address);
+            expect(tasks[0]).to.equal(taskId);
+        });
     });
 
     describe("Task Start", function () {
@@ -242,7 +259,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
             for (const auditor of [auditor1, auditor2]) {
                 await taskMarketplace.connect(auditor).applyForTaskAsAuditor(taskId);
@@ -303,7 +320,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(0);
             for (const auditor of [auditor1, auditor2, auditor3]) {
                 await taskMarketplace.connect(auditor).applyForTaskAsAuditor(taskId);
@@ -366,7 +383,7 @@ describe("TaskMarketplace", function () {
     //         await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
     //         await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
     //         await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-    //         await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+    //         await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
     //     });
     // });
 
@@ -380,7 +397,7 @@ describe("TaskMarketplace", function () {
     //         await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
     //         await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
     //         await taskMarketplace.connect(auditor4).requestSBT(Role.TaskAuditor);
-    //         await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+    //         await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
     //         await taskMarketplace.connect(developer).applyForTaskAsDeveloper(0);
     //         await taskMarketplace.connect(provider).assignDeveloper(0, developer.address);
     //         for (const auditor of [auditor1, auditor2, auditor3]) {
@@ -443,7 +460,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
         });
         it("Should allow getting task's auditors", async function () {
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             for (const auditor of [auditor1, auditor2, auditor3]) {
                 await taskMarketplace.connect(auditor).applyForTaskAsAuditor(taskId);
             }
@@ -459,7 +476,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
             for (const auditor of [auditor1, auditor2, auditor3]) {
                 await taskMarketplace.connect(auditor).applyForTaskAsAuditor(taskId);
@@ -495,7 +512,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor1).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
             await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
             for (const auditor of [auditor1, auditor2, auditor3]) {
                 await taskMarketplace.connect(auditor).applyForTaskAsAuditor(taskId);
@@ -544,6 +561,12 @@ describe("TaskMarketplace", function () {
                 await expect(taskMarketplace.connect(auditor1).submitAuditVote(taskId, true))
                     .to.emit(taskMarketplace, "AuditorVoteSubmitted")
                     .withArgs(taskId, auditor1.address, true);
+            });
+            it("Should add the task id to the auditor's tasks", async function () {
+                await taskMarketplace.connect(provider).initiateDispute(taskId);
+                await taskMarketplace.connect(auditor1).submitAuditVote(taskId, true);
+                const tasks = await taskMarketplace.getTasksByAuditor(auditor1.address);
+                expect(tasks[0]).to.equal(taskId);
             });
             it("Should not allow non-auditors to vote", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
@@ -622,7 +645,7 @@ describe("TaskMarketplace", function () {
         beforeEach(async function () {
             await taskMarketplace.connect(provider).requestSBT(Role.TaskProvider);
             await taskMarketplace.connect(developer).requestSBT(Role.TaskDeveloper);
-            await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
         });
 
         it("Should allow provider to update deadline", async function () {
