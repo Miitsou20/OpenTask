@@ -2,26 +2,25 @@
 import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useReadContract, useAccount, useWatchContractEvent } from 'wagmi';
+import { useReadContract, useAccount } from 'wagmi';
 import CreateTaskModal from '../tasks/CreateTaskModal';
-import { useState, useMemo, useEffect } from 'react';
 import { RocketIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useMemo } from 'react';
 import TaskList from '../tasks/TaskList';
 import { formatEther } from 'viem';
 
 const ProviderDashboard = () => {
-  const { toast } = useToast();
   const { address } = useAccount();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: taskIds, isLoading: isLoadingTaskIds, refetch: refetchTaskIds } = useReadContract({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
-    functionName: 'getTasksByProvider',
+    functionName: 'getAllProviderTasks',
     args: [address],
-    watch: false,
+    watch: true,
+    enabled: !!address,
   });
 
   const { data: tasksDetails, isLoading: isLoadingDetails, refetch: refetchTaskDetails } = useReadContract({
@@ -31,24 +30,6 @@ const ProviderDashboard = () => {
     args: [taskIds || []],
     watch: false,
     enabled: !!taskIds && taskIds.length > 0,
-  });
-
-  useWatchContractEvent({
-    address: TASK_MARKETPLACE_ADDRESS,
-    abi: TASK_MARKETPLACE_ABI,
-    eventName: 'TaskCreated',
-    onLogs: async (logs) => {
-      const event = logs[0];
-      if (event.args.provider === address) {
-        toast({
-          title: "Task Created!",
-          description: `New task created with ID: ${event.args.taskId}`,
-          duration: 5000,
-        });
-        await refetchTaskIds();
-        await refetchTaskDetails();
-      }
-    },
   });
 
   const formattedTasks = useMemo(() => {
@@ -61,8 +42,8 @@ const ProviderDashboard = () => {
 
   const handleModalClose = async () => {
     setIsCreateModalOpen(false);
-    await refetchTaskIds();
-    await refetchTaskDetails();
+    refetchTaskIds();
+    refetchTaskDetails();
   };
 
   const providerStats = useMemo(() => {

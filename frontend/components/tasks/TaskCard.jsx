@@ -1,26 +1,23 @@
 'use client'
-import { useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useReadContract } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useReadContract, useAccount} from 'wagmi';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
+import CreateTaskModal from './CreateTaskModal';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react';
 import { formatEther } from 'viem';
-import { useState, useMemo, useEffect } from 'react';
-import { useAccount } from 'wagmi';
-import { RocketIcon } from "@radix-ui/react-icons"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert"
 
 const TaskCard = ({ task, userRole }) => {
   const { toast } = useToast();
   const { address } = useAccount();
   const [transactionHash, setTransactionHash] = useState(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const router = useRouter();
 
-  const { data: developerCandidates } = useReadContract({
+  const { data: developerCandidates, refetch: refetchDeveloperCandidates } = useReadContract({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getDeveloperCandidates',
@@ -29,7 +26,7 @@ const TaskCard = ({ task, userRole }) => {
     enabled: userRole === 1,
   });
 
-  const { data: taskAuditors } = useReadContract({
+  const { data: taskAuditors, refetch: refetchTaskAuditors } = useReadContract({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTaskAuditors',
@@ -53,7 +50,7 @@ const TaskCard = ({ task, userRole }) => {
     ? new Date(Number(task.deadline) * 1000).toLocaleDateString()
     : 'No deadline set';
 
-  const { refetch, writeContract } = useWriteContract({
+  const { isPending: isSigningPending, writeContract } = useWriteContract({
     mutation: {
       onSuccess: (hash) => {
         setTransactionHash(hash);
@@ -74,6 +71,12 @@ const TaskCard = ({ task, userRole }) => {
     },
   });
 
+  const { isLoading: isTransactionPending } = useWaitForTransactionReceipt({
+    hash: transactionHash,
+  });
+
+  const isProcessing = isSigningPending || isTransactionPending;
+
   const handleAction = async (action) => {
     writeContract({
       address: TASK_MARKETPLACE_ADDRESS,
@@ -83,24 +86,20 @@ const TaskCard = ({ task, userRole }) => {
     });
   };
 
-  const { isLoading: isTransactionPending, isSuccess: isTransactionSuccess } = useWaitForTransactionReceipt({
-    hash: transactionHash,
-  });
-
   useWatchContractEvent({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     eventName: userRole === 1 ? 'DeveloperSubmitted' : 'AuditorSubmitted',
     onLogs: (logs) => {
       const event = logs[0];
-
       if (event.transactionHash === transactionHash) {
         toast({
           title: userRole === 1 ? "Developer Submitted!" : "Auditor Submitted!",
           description: "You have applied for this task.",
         });
         setTransactionHash(null);
-        refetch();
+        refetchDeveloperCandidates();
+        refetchTaskAuditors();
       }
     },
     enabled: !!transactionHash,
@@ -108,51 +107,77 @@ const TaskCard = ({ task, userRole }) => {
 
   const getStatusBadge = (status) => {
     const statusColors = {
-      0: "bg-green-100 text-green-800",
-      1: "bg-blue-100 text-blue-800",
-      2: "bg-yellow-100 text-yellow-800",
-      3: "bg-purple-100 text-purple-800",
-      4: "bg-gray-100 text-gray-800",
-      5: "bg-red-100 text-red-800"
+        0: "bg-green-100 text-green-800",   // Created
+        1: "bg-blue-100 text-blue-800",     // InProgress
+        2: "bg-yellow-100 text-yellow-800", // Submitted
+        3: "bg-purple-100 text-purple-800", // Disputed
+        4: "bg-gray-100 text-gray-800",     // Completed
+        5: "bg-red-100 text-red-800",       // Cancelled
+        6: "bg-green-100 text-green-800",   // CompletedWithDeveloperWon
+        7: "bg-orange-100 text-orange-800"  // CompletedWithProviderWon
     };
 
     const statusText = {
-      0: "Open",
-      1: "In Progress",
-      2: "Under Review",
-      3: "Audit Requested",
-      4: "Completed",
-      5: "Cancelled"
+        0: "Open",
+        1: "In Progress",
+        2: "Under Review",
+        3: "Disputed (Auditor Vote Pending)",
+        4: "Completed",
+        5: "Cancelled",
+        6: "Completed (Developer Won)",
+        7: "Completed (Provider Won)"
     };
 
     return (
-      <Badge className={statusColors[status]}>
-        {statusText[status]}
-      </Badge>
+        <Badge className={statusColors[status]}>
+            {statusText[status]}
+        </Badge>
     );
-  };
+};
 
   const renderActionButton = () => {
-    if (isTransactionPending) {
+    if (isProcessing) {
       return <Button disabled>Processing...</Button>;
     }
 
-    if (userRole === 1 && task.status === 0) {
+    const taskStatus = Number(task.status);
+
+    if (userRole === 0 && taskStatus === 0) {
       return (
         <Button 
-          onClick={() => handleAction('applyForTaskAsDeveloper')}
-          disabled={hasApplied}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsUpdateModalOpen(true);
+          }}
+          disabled={isProcessing}
+        >
+          Update Deadline
+        </Button>
+      );
+    }
+
+    if (userRole === 1 && taskStatus === 0) {
+      return (
+        <Button 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAction('applyForTaskAsDeveloper');
+          }}
+          disabled={hasApplied || isProcessing}
         >
           {hasApplied ? 'Applied' : 'Apply'}
         </Button>
       );
     }
     
-    if (userRole === 2 && task.status === 0) {
+    if (userRole === 2 && taskStatus === 0) {
       return (
         <Button 
-          onClick={() => handleAction('applyForTaskAsAuditor')}
-          disabled={hasApplied}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAction('applyForTaskAsAuditor');
+          }}
+          disabled={hasApplied || isProcessing}
         >
           {hasApplied ? 'Applied' : 'Apply as Auditor'}
         </Button>
@@ -162,24 +187,74 @@ const TaskCard = ({ task, userRole }) => {
     return null;
   };
 
+  const handleCardClick = () => {
+    router.push(`/tasks/${task.id}`);
+  };
+
+  const handleModalClose = () => {
+    setIsUpdateModalOpen(false);
+    refetchDeveloperCandidates();
+    refetchTaskAuditors();
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="truncate">{task?.title || 'No title'}</CardTitle>
-          {getStatusBadge(Number(task?.status || 0))}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex justify-between text-sm">
-          <span>Reward: {formattedReward} ETH</span>
-          <span>Deadline: {formattedDeadline}</span>
-        </div>
-      </CardContent>
-      <CardFooter className="justify-end">
-        {renderActionButton()}
-      </CardFooter>
-    </Card>
+    <>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow flex flex-col min-h-[400px]"
+        onClick={handleCardClick}
+      >
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <CardTitle className="truncate">{task?.title || 'No title'}</CardTitle>
+            {getStatusBadge(Number(task?.status || 0))}
+          </div>
+        </CardHeader>
+        <CardContent className="flex-grow">
+          <div className="flex flex-col space-y-4">
+            <div className="space-y-1">
+              <span className="font-medium text-gray-700 dark:text-gray-300">Description:</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400 ml-2">{task?.description}</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-medium text-gray-700 dark:text-gray-300">Reward:</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400 ml-2">{formattedReward} ETH</p>
+            </div>
+
+            <div className="space-y-1">
+              <span className="font-medium text-gray-700 dark:text-gray-300">Deadline:</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400 ml-2">{formattedDeadline}</p>
+            </div>
+
+            {userRole === 0 && (
+              <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div className="space-y-1">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Developer Candidates:</span>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 ml-2">{developerCandidates?.length || 0}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Auditor Candidates:</span>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 ml-2">{taskAuditors?.length || 0}/3</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="mt-auto justify-end">
+          {renderActionButton()}
+        </CardFooter>
+      </Card>
+      
+      {isUpdateModalOpen && (
+        <CreateTaskModal
+          open={isUpdateModalOpen}
+          onClose={handleModalClose}
+          task={task}
+          isUpdateMode={true}
+        />
+      )}
+    </>
   );
 };
 

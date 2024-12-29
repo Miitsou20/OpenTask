@@ -1,10 +1,11 @@
-import React from 'react'
+'use client'
+import { SBT_ROLE_ADDRESS, SBT_ROLE_ABI } from '@/config/contracts';
 import DeveloperDashboard from '../dashboard/DeveloperDashboard';
 import ProviderDashboard from '../dashboard/ProviderDashboard';
 import AuditorDashboard from '../dashboard/AuditorDashboard';
 import RoleSelection from '../roles/RoleSelection';
 import { useAccount, useReadContract } from 'wagmi';
-import { SBT_ROLE_ADDRESS, SBT_ROLE_ABI } from '@/config/contracts';
+import React from 'react';
 
 function Dashboard() {
     const { address } = useAccount();

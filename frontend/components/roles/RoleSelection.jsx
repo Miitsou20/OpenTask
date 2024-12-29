@@ -1,12 +1,12 @@
 'use client'
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useWatchContractEvent } from 'wagmi';
 import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
-import { SBT_ROLE_ADDRESS, SBT_ROLE_ABI } from '@/config/contracts';
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SBT_ROLE_ADDRESS, SBT_ROLE_ABI } from '@/config/contracts';
+import { RocketIcon } from "@radix-ui/react-icons";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from 'react';
-import { RocketIcon } from "@radix-ui/react-icons"
 
 
 const RoleSelection = () => {
@@ -31,7 +31,7 @@ const RoleSelection = () => {
     eventName: 'SBTMinted',
     onLogs: (logs) => {
       const event = logs[0];
-      if (event.args.to === address) {
+      if (event.args.to === address && event.transactionHash === transactionHash) {
         toast({
           title: "SBT Minted!",
           description: `Role successfully assigned to ${event.args.to}`,
@@ -43,7 +43,7 @@ const RoleSelection = () => {
     },
   });
 
-  const { data: sbtMintTxHash, error, isPending, writeContract } = useWriteContract({
+  const { error, isPending, writeContract } = useWriteContract({
     mutation: {
       onSuccess: (hash) => {
         setTransactionHash(hash);

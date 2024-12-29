@@ -4,7 +4,7 @@ import "hardhat/console.sol";
 
 /**
  * @title Task Escrow Contract
- * @author Your Name
+ * @author Damien Schneider
  * @notice Manages secure fund distribution for task completion
  * @dev Handles escrow of funds between task provider, developer, and auditors
  */

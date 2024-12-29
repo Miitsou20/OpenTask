@@ -1,4 +1,4 @@
-export const TASK_MARKETPLACE_ADDRESS = "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d";
+export const TASK_MARKETPLACE_ADDRESS = "0x851356ae760d987E095750cCeb3bC6014560891C";
 export const TASK_MARKETPLACE_ABI = [
   {
     "inputs": [
@@ -111,6 +111,25 @@ export const TASK_MARKETPLACE_ABI = [
       }
     ],
     "name": "DeveloperAssigned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "taskId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "developer",
+        "type": "address"
+      }
+    ],
+    "name": "DeveloperPenalized",
     "type": "event"
   },
   {
@@ -440,6 +459,30 @@ export const TASK_MARKETPLACE_ABI = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "auditorTasks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "taskId",
         "type": "uint256"
@@ -507,6 +550,30 @@ export const TASK_MARKETPLACE_ABI = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "developerTasks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
@@ -555,6 +622,63 @@ export const TASK_MARKETPLACE_ABI = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "auditor",
+        "type": "address"
+      }
+    ],
+    "name": "getAllAuditorTasks",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "developer",
+        "type": "address"
+      }
+    ],
+    "name": "getAllDeveloperTasks",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "getAllProviderTasks",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "taskId",
         "type": "uint256"
@@ -585,63 +709,6 @@ export const TASK_MARKETPLACE_ABI = [
         "internalType": "address[]",
         "name": "auditors",
         "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "auditor",
-        "type": "address"
-      }
-    ],
-    "name": "getTasksByAuditor",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "developer",
-        "type": "address"
-      }
-    ],
-    "name": "getTasksByDeveloper",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "getTasksByProvider",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "",
-        "type": "uint256[]"
       }
     ],
     "stateMutability": "view",
@@ -788,6 +855,30 @@ export const TASK_MARKETPLACE_ABI = [
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "providerTasks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1014,7 +1105,7 @@ export const TASK_MARKETPLACE_ABI = [
   }
 ];
 
-export const SBT_ROLE_ADDRESS = "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE";
+export const SBT_ROLE_ADDRESS = "0x9E545E3C0baAB3E08CdfD552C960A1050f373042";
 export const SBT_ROLE_ABI = [
     {
       "inputs": [],
@@ -1694,7 +1785,7 @@ export const SBT_ROLE_ABI = [
     }
 ];
 
-export const TREASURY_ADDRESS = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1";
+export const TREASURY_ADDRESS = "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB";
 export const TREASURY_ABI = [
     {
       "inputs": [],
@@ -1956,7 +2047,7 @@ export const TREASURY_ABI = [
     }
 ];
 
-export const SBT_ACHIEVEMENT_ADDRESS = "0x68B1D87F95878fE05B998F19b66F4baba5De1aed";
+export const SBT_ACHIEVEMENT_ADDRESS = "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9";
 export const SBT_ACHIEVEMENT_ABI = [
     {
       "inputs": [],
@@ -2629,7 +2720,7 @@ export const SBT_ACHIEVEMENT_ABI = [
     }
 ];
 
-export const SBT_REDFLAG_ADDRESS = "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c";
+export const SBT_REDFLAG_ADDRESS = "0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8";
 export const SBT_REDFLAG_ABI = [
     {
       "inputs": [],
@@ -3263,3 +3354,367 @@ export const SBT_REDFLAG_ABI = [
       "type": "function"
     }
 ];
+
+export const TASK_ESCROW_ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_marketplace",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_developer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_taskId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_reward",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_auditorReward",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_developerReward",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "auditor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "AuditorPaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "developer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "DeveloperPaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProviderRefunded",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "auditorReward",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "developer",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "developerReward",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "firstThreeVoters",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "firstThreeVotes",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "hasWithdrawn",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "isDisputed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "marketplace",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paymentStatus",
+    "outputs": [
+      {
+        "internalType": "enum TaskEscrow.PaymentStatus",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "provider",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "reward",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum TaskEscrow.PaymentStatus",
+        "name": "status",
+        "type": "uint8"
+      }
+    ],
+    "name": "setPaymentStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[3]",
+        "name": "voters",
+        "type": "address[3]"
+      },
+      {
+        "internalType": "bool[3]",
+        "name": "votes",
+        "type": "bool[3]"
+      }
+    ],
+    "name": "setVotingResults",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "taskId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "auditor",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawAuditorPayment",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawDeveloperPayment",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawProviderPayment",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

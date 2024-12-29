@@ -1,13 +1,9 @@
 'use client'
-import { useReadContract, useAccount } from 'wagmi';
-import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
-import TaskCard from './TaskCard';
-import { useState, useMemo } from 'react';
-import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RocketIcon } from "@radix-ui/react-icons";
-import { useToast } from "@/hooks/use-toast";
-import { useWatchContractEvent } from 'wagmi';
+import { Input } from "@/components/ui/input";
+import { useState, useMemo } from 'react';
+import TaskCard from './TaskCard';
 import {
   Select,
   SelectContent,
@@ -17,7 +13,6 @@ import {
 } from "@/components/ui/select";
 
 const TaskList = ({ tasks, userRole, isLoading }) => {
-  const { toast } = useToast();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -31,7 +26,6 @@ const TaskList = ({ tasks, userRole, isLoading }) => {
       return task.status?.toString() === filter;
     });
   }, [tasks, search, filter]);
-  console.log('filteredTasks', filteredTasks);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -52,7 +46,12 @@ const TaskList = ({ tasks, userRole, isLoading }) => {
               <SelectItem value="all">All Tasks</SelectItem>
               <SelectItem value="0">Open</SelectItem>
               <SelectItem value="1">In Progress</SelectItem>
+              <SelectItem value="2">Submitted</SelectItem>
+              <SelectItem value="3">Disputed</SelectItem>
               <SelectItem value="4">Completed</SelectItem>
+              <SelectItem value="5">Cancelled</SelectItem>
+              <SelectItem value="6">Completed With Developer Won</SelectItem>
+              <SelectItem value="7">Completed With Provider Won</SelectItem>
             </SelectContent>
           </Select>
         </div>

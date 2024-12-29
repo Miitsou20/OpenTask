@@ -6,9 +6,10 @@ const { ethers } = require("hardhat");
 describe("TaskEscrow", function () {
     const PaymentStatus = {
         None: 0,
-        DeveloperWon: 1,
-        ProviderWon: 2,
-        Cancelled: 3
+        WorkAccepted: 1,
+        DeveloperWon: 2,
+        ProviderWon: 3,
+        Cancelled: 4
     };
 
     const Role = {
@@ -48,7 +49,7 @@ describe("TaskEscrow", function () {
         await taskMarketplace.connect(auditor2).requestSBT(Role.TaskAuditor);
         await taskMarketplace.connect(auditor3).requestSBT(Role.TaskAuditor);
         await taskMarketplace.connect(auditor4).requestSBT(Role.TaskAuditor);
-        await taskMarketplace.connect(provider).createTask("Test Task", deadline, reward);
+        await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
     });
 
     describe("Initial State", function () {
@@ -216,39 +217,50 @@ describe("TaskEscrow", function () {
             );
         });
         it("Should allow provider to refund 97% of the reward on cancellation", async function () {
+            const snapshot = await ethers.provider.send("evm_snapshot", []);
             await ethers.provider.send("evm_increaseTime", [3601]);
             await ethers.provider.send("evm_mine");
             await taskMarketplace.connect(provider).checkDeadlineAndPenalize(taskId);
             const initialBalance = await ethers.provider.getBalance(provider.address);
             await taskMarketplace.connect(provider).refundProvider(taskId);
             const finalBalance = await ethers.provider.getBalance(provider.address);
-            expect(finalBalance - initialBalance).to.be.closeTo(
-                (reward * 97n) / 100n,
-                ethers.parseEther("0.01")
-            );
+            expect(finalBalance - initialBalance).to.be.closeTo((reward * 97n) / 100n,ethers.parseEther("0.01"));
+            await ethers.provider.send("evm_revert", [snapshot]);
         });
         it("Should emit ProviderRefunded event when provider refunds", async function () {
+            const snapshot = await ethers.provider.send("evm_snapshot", []);
+            await ethers.provider.send("evm_increaseTime", [3601]);
+            await ethers.provider.send("evm_mine");
             await taskMarketplace.connect(provider).checkDeadlineAndPenalize(taskId);
             await expect(taskMarketplace.connect(provider).refundProvider(taskId))
                 .to.emit(escrow, "ProviderRefunded")
                 .withArgs(provider.address, reward * 97n / 100n);
+            await ethers.provider.send("evm_revert", [snapshot]);
         });
         it("Should set hasWithdrawn to true when provider refunds", async function () {
+            const snapshot = await ethers.provider.send("evm_snapshot", []);
+            await ethers.provider.send("evm_increaseTime", [3601]);
+            await ethers.provider.send("evm_mine");
             await taskMarketplace.connect(provider).checkDeadlineAndPenalize(taskId);
             await taskMarketplace.connect(provider).refundProvider(taskId);
             expect(await escrow.hasWithdrawn(provider.address)).to.be.true;
+            await ethers.provider.send("evm_revert", [snapshot]);
         });
         it("Should prevent double refund", async function () {
+            const snapshot = await ethers.provider.send("evm_snapshot", []);
+            await ethers.provider.send("evm_increaseTime", [3601]);
+            await ethers.provider.send("evm_mine");
             await taskMarketplace.connect(provider).checkDeadlineAndPenalize(taskId);
             await taskMarketplace.connect(provider).refundProvider(taskId);
             await expect(taskMarketplace.connect(provider).refundProvider(taskId))
                 .to.be.revertedWith("Already refunded");
+            await ethers.provider.send("evm_revert", [snapshot]);
         });
     });
 
     describe("Balance Check", function () {
         it("Should return correct contract balance", async function () {
-            expect(await escrow.getBalance()).to.equal(0);
+            expect(await escrow.getBalance()).to.equal((reward * 97n) / 100n,ethers.parseEther("0.01"));
         });
     });
 }); 

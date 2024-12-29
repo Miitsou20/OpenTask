@@ -61,7 +61,9 @@ contract TaskMarketplace is ReentrancyGuard {
         Submitted,
         Disputed,
         Completed,
-        Cancelled
+        Cancelled,
+        CompletedWithDeveloperWon,
+        CompletedWithProviderWon
     }
 
     uint256 public taskCount;
@@ -71,9 +73,9 @@ contract TaskMarketplace is ReentrancyGuard {
     mapping(uint256 => mapping(address => AuditVote)) public auditVotes;
     mapping(uint256 => mapping(address => bool)) public firstThreeVotes;
     mapping(uint256 => address[3]) public firstThreeVoters;
-    mapping(address => uint256[]) private providerTasks;
-    mapping(address => uint256[]) private developerTasks;
-    mapping(address => uint256[]) private auditorTasks;
+    mapping(address => uint256[]) public providerTasks;
+    mapping(address => uint256[]) public developerTasks;
+    mapping(address => uint256[]) public auditorTasks;
 
     event TaskCreated(
         uint256 indexed taskId,
@@ -94,7 +96,7 @@ contract TaskMarketplace is ReentrancyGuard {
     event AuditorVoteSubmitted(uint256 indexed taskId, address indexed auditor, bool supportsDeveloper);
     event DisputeResolved(uint256 indexed taskId, bool developerWon);
     event TaskDeadlineUpdated(uint256 indexed taskId, uint256 newDeadline);
-
+    event DeveloperPenalized(uint256 indexed taskId, address indexed developer);
     /**
      * @notice Initializes the marketplace with required contracts
      * @dev Sets up contract references and validates addresses
@@ -207,6 +209,7 @@ contract TaskMarketplace is ReentrancyGuard {
         require(!_contains(task.auditors, msg.sender), "Already applied for this task");
         
         task.auditors.push(msg.sender);
+        auditorTasks[msg.sender].push(taskId);
         emit AuditorSubmitted(taskId, msg.sender);
     }
 
@@ -294,7 +297,7 @@ contract TaskMarketplace is ReentrancyGuard {
      */
     function withdrawPayment(uint256 taskId) external {
         Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Completed, "Task not completed");
+        require(task.status == TaskStatus.Completed || task.status == TaskStatus.CompletedWithDeveloperWon || task.status == TaskStatus.CompletedWithProviderWon, "Task not completed");
         TaskEscrow escrow = TaskEscrow(task.escrowAddress);
 
         if (sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskDeveloper) {
@@ -318,7 +321,7 @@ contract TaskMarketplace is ReentrancyGuard {
      */
     function refundProvider(uint256 taskId) external onlyTaskProvider {
         Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Cancelled || task.status == TaskStatus.Completed, "Task not cancelled or completed");
+        require(task.status == TaskStatus.Cancelled || task.status == TaskStatus.CompletedWithProviderWon, "Task not cancelled or completed");
         TaskEscrow escrow = TaskEscrow(task.escrowAddress);
         bool success = escrow.withdrawProviderPayment();
         require(success, "Provider payment withdrawal failed");
@@ -384,7 +387,6 @@ contract TaskMarketplace is ReentrancyGuard {
 
         vote.hasVoted = true;
         vote.supportsDeveloper = supportsDeveloper;
-        auditorTasks[msg.sender].push(taskId);
         
         emit AuditorVoteSubmitted(taskId, msg.sender, supportsDeveloper);
         
@@ -420,7 +422,7 @@ contract TaskMarketplace is ReentrancyGuard {
         }
 
         bool developerWon = votesForDev >= 2;
-        task.status = TaskStatus.Completed;
+        task.status = developerWon ? TaskStatus.CompletedWithDeveloperWon : TaskStatus.CompletedWithProviderWon;
         
         emit DisputeResolved(taskId, developerWon);
         
@@ -496,6 +498,33 @@ contract TaskMarketplace is ReentrancyGuard {
     }
 
     /**
+     * @notice Gets all tasks for a provider
+     * @param provider Address of the provider
+     * @return tasks Array of task IDs
+     */
+    function getAllProviderTasks(address provider) external view returns (uint256[] memory) {
+        return providerTasks[provider];
+    }
+
+    /**
+     * @notice Gets all tasks for an auditor
+     * @param auditor Address of the auditor
+     * @return tasks Array of task IDs
+     */
+    function getAllAuditorTasks(address auditor) external view returns (uint256[] memory) {
+        return auditorTasks[auditor];
+    }
+
+    /**
+     * @notice Gets all tasks for a developer
+     * @param developer Address of the developer
+     * @return tasks Array of task IDs
+     */
+    function getAllDeveloperTasks(address developer) external view returns (uint256[] memory) {
+        return developerTasks[developer];
+    }
+
+    /**
      * @notice Updates the deadline for a task
      * @dev Only callable by task provider
      * @param taskId ID of the task
@@ -520,7 +549,7 @@ contract TaskMarketplace is ReentrancyGuard {
         // slither-disable-next-line timestamp    
         require(block.timestamp > task.deadline, "Deadline not passed yet");
         task.status = TaskStatus.Cancelled;
-        emit TaskCancelled(taskId);
+        emit DeveloperPenalized(taskId, task.developer);
         
         redflagContract.recordLostDispute(task.developer);
         TaskEscrow(task.escrowAddress).setPaymentStatus(TaskEscrow.PaymentStatus.Cancelled);
@@ -539,33 +568,6 @@ contract TaskMarketplace is ReentrancyGuard {
             }
         }
         return false;
-    }
-
-    /**
-     * @notice Gets all tasks for a specific provider
-     * @param provider Address of the task provider
-     * @return taskIds Array of task IDs created by the provider
-     */
-    function getTasksByProvider(address provider) external view returns (uint256[] memory) {
-        return providerTasks[provider];
-    }
-
-    /**
-     * @notice Gets tasks for a specific developer
-     * @param developer Address of the developer
-     * @return taskIds Array of task IDs assigned to the developer
-     */
-    function getTasksByDeveloper(address developer) external view returns (uint256[] memory) {
-        return developerTasks[developer];
-    }
-
-    /**
-     * @notice Gets tasks for a specific auditor
-     * @param auditor Address of the auditor
-     * @return taskIds Array of task IDs where the auditor is assigned
-     */
-    function getTasksByAuditor(address auditor) external view returns (uint256[] memory) {
-        return auditorTasks[auditor];
     }
 
     /**

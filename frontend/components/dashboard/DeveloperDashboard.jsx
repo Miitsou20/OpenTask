@@ -1,23 +1,16 @@
 'use client'
 import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useReadContract, useAccount } from 'wagmi';
 import { useState, useMemo, useEffect } from 'react';
+import { useReadContract, useAccount } from 'wagmi';
+import { publicClient } from '@/utils/client';
 import TaskList from '../tasks/TaskList';
 import { formatEther } from 'viem';
-import { publicClient } from '@/utils/client';
 import { parseAbiItem } from 'viem';
 
 const DeveloperDashboard = () => {
   const { address } = useAccount();
   const [developerSubmittedEvents, setDeveloperSubmittedEvents] = useState([]);
-
-  const { data: taskCount } = useReadContract({
-    address: TASK_MARKETPLACE_ADDRESS,
-    abi: TASK_MARKETPLACE_ABI,
-    functionName: 'taskCount',
-    watch: false,
-  });
 
   const getDeveloperSubmittedEvents = async() => {
     const developerSubmittedLogs = await publicClient.getLogs({
@@ -41,53 +34,86 @@ const DeveloperDashboard = () => {
     getAllEvents()
   }, [address])
 
+  const { data: assignedTaskIds, isLoading: isLoadingTaskIds } = useReadContract({
+    address: TASK_MARKETPLACE_ADDRESS,
+    abi: TASK_MARKETPLACE_ABI,
+    functionName: 'getAllDeveloperTasks',
+    args: [address],
+    watch: true,
+    enabled: !!address,
+  });
+
   const appliedTaskIds = useMemo(() => {
     if (!developerSubmittedEvents) return [];
     return developerSubmittedEvents.map(event => event.taskId);
   }, [developerSubmittedEvents]);
 
-  const { data: tasksDetails, isLoading: isLoadingDetails } = useReadContract({
+  const { data: appliedTasksDetails, isLoading: isLoadingAppliedTasksDetails } = useReadContract({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [appliedTaskIds],
     watch: false,
-    enabled: appliedTaskIds.length > 0,
+    enabled: appliedTaskIds && appliedTaskIds.length > 0,
   });
 
-  const formattedTasks = useMemo(() => {
-    if (!tasksDetails) return [];
+  const { data: assignedTasksDetails, isLoading: isLoadingAssignedTasksDetails } = useReadContract({
+    address: TASK_MARKETPLACE_ADDRESS,
+    abi: TASK_MARKETPLACE_ABI,
+    functionName: 'getTasksDetails',
+    args: [assignedTaskIds],
+    watch: false,
+    enabled: assignedTaskIds && assignedTaskIds.length > 0,
+  });
+
+  const formattedAppliedTasks = useMemo(() => {
+    if (!appliedTasksDetails) return [];
     return appliedTaskIds.map((id, index) => ({
       id,
-      ...tasksDetails[index],
+      ...appliedTasksDetails[index],
       hasApplied: true
     }));
-  }, [appliedTaskIds, tasksDetails]);
+  }, [appliedTaskIds, appliedTasksDetails]);
+
+  const formattedAssignedTasks = useMemo(() => {
+    if (!assignedTasksDetails) return [];
+    return assignedTaskIds.map((id, index) => ({
+      id,
+      ...assignedTasksDetails[index],
+      hasApplied: true
+    }));
+  }, [assignedTaskIds, assignedTasksDetails]);
+
+  const formattedTasks = useMemo(() => {
+    const tasksMap = new Map(
+      formattedAssignedTasks.map(task => [task.id.toString(), task])
+    );
+
+    formattedAppliedTasks.forEach(task => {
+      if (!tasksMap.has(task.id.toString())) {
+        tasksMap.set(task.id.toString(), task);
+      }
+    });
+
+    return Array.from(tasksMap.values());
+  }, [formattedAppliedTasks, formattedAssignedTasks]);
 
   const developerStats = useMemo(() => {
     if (!formattedTasks) return {
+      appliedTasks: 0,
       tasksCompleted: 0,
       totalEarned: 0,
       activeTasks: 0,
-      appliedTasks: 0
     };
 
-    return formattedTasks.reduce((stats, task) => {
-      if (task.status === 4) {
-        stats.tasksCompleted++;
-        stats.totalEarned += Number(task.developerReward);
-      } else if (task.status === 1) {
-        stats.activeTasks++;
-      }
-      stats.appliedTasks++;
-      return stats;
-    }, {
-      tasksCompleted: 0,
-      totalEarned: 0,
-      activeTasks: 0,
-      appliedTasks: 0
-    });
-  }, [formattedTasks]);
+    return {
+      appliedTasks: formattedAppliedTasks.filter(task => task.status === 0).length,
+      assignedTasks: formattedTasks.filter(task => task.developer === address).length,
+      tasksCompleted: formattedTasks.filter(task => task.status === 4 || task.status === 6).length,
+      totalEarned: formattedTasks.reduce((sum, task) => (task.status === 4 || task.status === 6) ? sum + Number(task.developerReward) : 0, 0),
+      activeTasks: formattedTasks.filter(task => task.status === 1 || task.status === 2 || task.status === 3).length
+    };
+  }, [formattedAppliedTasks, formattedAssignedTasks]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -144,7 +170,7 @@ const DeveloperDashboard = () => {
         <TaskList 
           tasks={formattedTasks}
           userRole={1}
-          isLoading={isLoadingDetails}
+          isLoading={isLoadingTaskIds || isLoadingAppliedTasksDetails || isLoadingAssignedTasksDetails}
         />
       </div>
     </div>

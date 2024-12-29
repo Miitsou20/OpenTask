@@ -2,96 +2,65 @@
 import { TASK_MARKETPLACE_ADDRESS, TASK_MARKETPLACE_ABI } from '@/config/contracts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useReadContract, useAccount } from 'wagmi';
-import { useToast } from "@/hooks/use-toast";
 import TaskList from '../tasks/TaskList';
 import { formatEther } from 'viem';
-import { useMemo, useEffect, useState } from 'react';
-import { publicClient } from '@/utils/client';
-import { parseAbiItem } from 'viem';
+import { useMemo } from 'react';
+
 
 const AuditorDashboard = () => {
-  const { toast } = useToast();
   const { address } = useAccount();
-  const [auditorSubmittedEvents, setAuditorSubmittedEvents] = useState([]);
 
-  const getAuditorSubmittedEvents = async() => {
-    const auditorSubmittedLogs = await publicClient.getLogs({
-      address: TASK_MARKETPLACE_ADDRESS,
-      event: parseAbiItem('event AuditorSubmitted(uint256 indexed taskId, address indexed auditor)'),
-      fromBlock: 0n,
-      toBlock: 'latest'
-    });
-    setAuditorSubmittedEvents(auditorSubmittedLogs.map(log => ({
-      taskId: log.args.taskId,
-      auditor: log.args.auditor
-    })));
-  }
+  const { data: appliedTaskIds } = useReadContract({
+    address: TASK_MARKETPLACE_ADDRESS,
+    abi: TASK_MARKETPLACE_ABI,
+    functionName: 'getAllAuditorTasks',
+    args: [address],
+    watch: true,
+    enabled: !!address,
+  });
 
-  useEffect(() => {
-    const getAllEvents = async() => {
-        if(address !== 'undefined') {
-          await getAuditorSubmittedEvents();
-        }
-    }
-    getAllEvents()
-  }, [address])
-
-  const appliedTaskIds = useMemo(() => {
-    if (!auditorSubmittedEvents) return [];
-    return auditorSubmittedEvents.map(event => event.taskId);
-  }, [auditorSubmittedEvents]);
-
-  // const { data: taskIds, isLoading: isLoadingAssigned } = useReadContract({
-  //   address: TASK_MARKETPLACE_ADDRESS,
-  //   abi: TASK_MARKETPLACE_ABI,
-  //   functionName: 'getTasksByAuditor',
-  //   args: [address],
-  //   watch: false,
-  // });
-
-  const { data: tasksDetails, isLoading: isLoadingDetails } = useReadContract({
+  const { data: appliedTasksDetails, isLoading: isLoadingDetails } = useReadContract({
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
-    args: [appliedTaskIds],
+    args: [[appliedTaskIds]],
     watch: false,
-    enabled: appliedTaskIds.length > 0,
+    enabled: appliedTaskIds && appliedTaskIds.length > 0,
   });
-  console.log('tasksDetails', tasksDetails);
-
 
   const formattedTasks = useMemo(() => {
-    if (!appliedTaskIds || !tasksDetails) return [];
+    if (!appliedTaskIds || !appliedTasksDetails) return [];
     return appliedTaskIds.map((id, index) => ({
       id,
-      ...tasksDetails[index]
+      ...appliedTasksDetails[index]
     }));
-  }, [appliedTaskIds, tasksDetails]);
+  }, [appliedTaskIds, appliedTasksDetails]);
 
   const auditorStats = useMemo(() => {
     if (!formattedTasks) return {
       reviewsCompleted: 0,
       activeReviews: 0,
-      totalEarned: 0,
-      appliedReviews: 0
+      totalEarned: BigInt(0),
+      appliedReviews: formattedTasks?.length || 0
     };
 
     return formattedTasks.reduce((stats, task) => {
-      if (task.status === 4) { // Completed
-        stats.reviewsCompleted++;
-        stats.totalEarned += Number(task.auditorReward);
-      } else if (task.status === 2) { // In Review
-        stats.activeReviews++;
-      }
-      stats.appliedReviews++;
-      return stats;
+      return {
+        appliedReviews: stats.appliedReviews + 1,
+        activeReviews: stats.activeReviews + (task.status === 3 ? 1 : 0),
+        reviewsCompleted: stats.reviewsCompleted + 
+          ((task.status === 6 || task.status === 7) ? 1 : 0),
+        totalEarned: stats.totalEarned + 
+          ((task.status === 6 || task.status === 7) ? 
+            BigInt(task.auditorReward || 0) : BigInt(0))
+      };
     }, {
       reviewsCompleted: 0,
       activeReviews: 0,
-      totalEarned: 0,
+      totalEarned: BigInt(0),
       appliedReviews: 0
     });
-  }, [formattedTasks]);
+  }, [formattedTasks, address]);
 
 
   return (

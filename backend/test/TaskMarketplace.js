@@ -8,10 +8,12 @@ describe("TaskMarketplace", function () {
     const TaskStatus = {
         Created: 0,
         InProgress: 1,
-        UnderReview: 2,
-        AuditorRequested: 3,
+        Submitted: 2,
+        Disputed: 3,
         Completed: 4,
-        Cancelled: 5
+        Cancelled: 5,
+        CompletedWithDeveloperWon: 6,
+        CompletedWithProviderWon: 7
     };
 
     const Role = {
@@ -115,17 +117,18 @@ describe("TaskMarketplace", function () {
             await expect(taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, 0))
                 .to.be.revertedWith("Reward must be greater than 0");
         });
-        it("Should add the task id to the provider's tasks", async function () {
-            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
-            const tasks = await taskMarketplace.getTasksByProvider(provider.address);
-            expect(tasks[0]).to.equal(taskId);
-        });
         it("Should return the correct taskDetails", async function () {
             await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             const taskDetails = await taskMarketplace.getTasksDetails([taskId]);
             expect(taskDetails[0].description).to.equal("Description: Test Task");
             expect(taskDetails[0].reward).to.equal(reward);
             expect(taskDetails[0].deadline).to.equal(deadline);
+        });
+
+        it("Should return the tasks for a provider", async function () {
+            await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
+            const taskIds = await taskMarketplace.getAllProviderTasks(provider.address);
+            expect(taskIds).to.deep.equal([taskId]);
         });
     });
 
@@ -210,6 +213,11 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
             await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId)).to.be.revertedWith("Task not open for developer applications");
         });
+        it("Should return the tasks for an auditor", async function () {
+            await taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId);
+            const taskIds = await taskMarketplace.getAllAuditorTasks(auditor1.address);
+            expect(taskIds).to.deep.equal([taskId]);
+        });
     });
 
     describe("Task Assignment", function () {
@@ -244,11 +252,11 @@ describe("TaskMarketplace", function () {
             const task = await taskMarketplace.tasks(taskId);
             expect(task.developer).to.equal(developer.address);
         });
-        it("Should add the task id to the developer's tasks", async function () {
+        it("Should return the tasks for a developer", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
             await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
-            const tasks = await taskMarketplace.getTasksByDeveloper(developer.address);
-            expect(tasks[0]).to.equal(taskId);
+            const taskIds = await taskMarketplace.getAllDeveloperTasks(developer.address);
+            expect(taskIds).to.deep.equal([taskId]);
         });
     });
 
@@ -562,12 +570,6 @@ describe("TaskMarketplace", function () {
                     .to.emit(taskMarketplace, "AuditorVoteSubmitted")
                     .withArgs(taskId, auditor1.address, true);
             });
-            it("Should add the task id to the auditor's tasks", async function () {
-                await taskMarketplace.connect(provider).initiateDispute(taskId);
-                await taskMarketplace.connect(auditor1).submitAuditVote(taskId, true);
-                const tasks = await taskMarketplace.getTasksByAuditor(auditor1.address);
-                expect(tasks[0]).to.equal(taskId);
-            });
             it("Should not allow non-auditors to vote", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await expect(taskMarketplace.connect(developer).submitAuditVote(taskId, true))
@@ -622,7 +624,7 @@ describe("TaskMarketplace", function () {
                 const vote = await taskMarketplace.getVoteStatus(taskId);
                 expect(vote.isComplete).to.be.false;
             });
-            it("Should emit TaskCompleted event if developer won", async function () {
+            it("Should emit DisputeResolved event with true if developer won", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await taskMarketplace.connect(auditor1).submitAuditVote(taskId, true);
                 await taskMarketplace.connect(auditor2).submitAuditVote(taskId, true);
@@ -630,13 +632,29 @@ describe("TaskMarketplace", function () {
                     .to.emit(taskMarketplace, "DisputeResolved")
                     .withArgs(taskId, true);
             });
-            it("Should emit recordLostDispute event if developer lost", async function () {
+            it("Should emit DisputeResolved event with false if developer lost", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await taskMarketplace.connect(auditor1).submitAuditVote(taskId, false);
                 await taskMarketplace.connect(auditor2).submitAuditVote(taskId, false);
                 await expect(taskMarketplace.connect(auditor3).submitAuditVote(taskId, false))
                     .to.emit(taskMarketplace, "DisputeResolved")
                     .withArgs(taskId, false);
+            });
+            it("Should set the status to CompletedWithProviderWon", async function () {
+                await taskMarketplace.connect(provider).initiateDispute(taskId);
+                await taskMarketplace.connect(auditor1).submitAuditVote(taskId, false);
+                await taskMarketplace.connect(auditor2).submitAuditVote(taskId, false);
+                await taskMarketplace.connect(auditor3).submitAuditVote(taskId, false);
+                const task = await taskMarketplace.tasks(taskId);
+                expect(task.status).to.equal(TaskStatus.CompletedWithProviderWon);
+            });
+            it("Should set the status to CompletedWithDeveloperWon", async function () {
+                await taskMarketplace.connect(provider).initiateDispute(taskId);
+                await taskMarketplace.connect(auditor1).submitAuditVote(taskId, true);
+                await taskMarketplace.connect(auditor2).submitAuditVote(taskId, true);
+                await taskMarketplace.connect(auditor3).submitAuditVote(taskId, true);
+                const task = await taskMarketplace.tasks(taskId);
+                expect(task.status).to.equal(TaskStatus.CompletedWithDeveloperWon);
             });
         });
     });

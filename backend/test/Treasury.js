@@ -58,13 +58,9 @@ describe("Treasury", function () {
         it("Should revert if transfer fails", async function () {
             const MockReceiver = await ethers.getContractFactory("MockReceiver");
             const mockReceiver = await MockReceiver.deploy();
-            
             await treasury.transferOwnership(mockReceiver.target);
-            
             await owner.sendTransaction({ to: treasury.target, value: withdrawAmount });
-            
-            await expect(mockReceiver.withdraw(treasury.target, withdrawAmount))
-                .to.be.revertedWith("Withdrawal failed");
+            await expect(mockReceiver.withdraw(treasury.target, withdrawAmount)).to.be.revertedWith("Withdrawal failed");
         });
     });
     
