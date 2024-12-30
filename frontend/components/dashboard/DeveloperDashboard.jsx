@@ -16,7 +16,7 @@ const DeveloperDashboard = () => {
     const developerSubmittedLogs = await publicClient.getLogs({
       address: TASK_MARKETPLACE_ADDRESS,
       event: parseAbiItem('event DeveloperSubmitted(uint256 indexed taskId, address indexed developer)'),
-      fromBlock: 0n,
+      fromBlock: 7386422,
       toBlock: 'latest'
     });
     setDeveloperSubmittedEvents(developerSubmittedLogs.map(log => ({

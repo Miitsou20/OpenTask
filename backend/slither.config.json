@@ -1,5 +1,5 @@
 {
-    "filter_paths": "@openzeppelin|node_modules",
+    "filter_paths": "@openzeppelin|node_modules|contracts/test",
     "exclude_informational": true,
     "exclude_low": false,
     "exclude_medium": false,

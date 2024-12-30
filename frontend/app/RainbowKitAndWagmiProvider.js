@@ -2,7 +2,7 @@
 import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { hardhat , sepolia, polygon } from "wagmi/chains";
+import { hardhat , sepolia, polygon, polygonAmoy } from "wagmi/chains";
 // import { sepolia, hardhat, polygon } from "@/utils/sepolia";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
@@ -22,7 +22,8 @@ const config = getDefaultConfig({
       },
     },
     sepolia,
-    polygon
+    polygon,
+    polygonAmoy
   ],
   ssr: true
 });

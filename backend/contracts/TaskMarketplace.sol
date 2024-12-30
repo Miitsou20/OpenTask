@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "./SoulBoundTokens/SoulBoundAchievement.sol";
-import "./SoulBoundTokens/SoulBoundTokenRole.sol";
-import "./TaskEscrow.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "./SoulBoundTokens/SoulBoundRedflag.sol";
-import "hardhat/console.sol";
+import './SoulBoundTokens/SoulBoundAchievement.sol';
+import './SoulBoundTokens/SoulBoundTokenRole.sol';
+import './SoulBoundTokens/SoulBoundRedflag.sol';
+import './TaskEscrow.sol';
+import './interfaces/ITaskEvents.sol';
+import '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
  * @title Task Marketplace Contract
@@ -18,572 +19,638 @@ import "hardhat/console.sol";
  * (few seconds) do not impact the security of the system.
  * If the scale of your time-dependent event can vary by 15 seconds and maintain integrity, it is safe to use a block.timestamp.
  */
-contract TaskMarketplace is ReentrancyGuard {
-    SoulBoundTokenRole public immutable sbtContract;
-    SoulBoundAchievement public immutable achievementContract;
-    SoulBoundRedflag public immutable redflagContract;
-    
-    address public immutable protocolTreasury;
-    
-    uint256 private constant DEVELOPER_SHARE = 67;
-    uint256 private constant AUDITOR_SHARE = 10;  // 10% * 3 auditors = 30%
-    uint256 private constant PROTOCOL_FEE = 3;    // 3% for the protocol
-    uint256 private constant MAX_DEVELOPER_CANDIDATES = 15;
-    uint256 private constant MAX_AUDITOR_CANDIDATES = 15;
-    uint256 private constant MAX_TASKS_PER_REQUEST = 100;
+contract TaskMarketplace is ReentrancyGuard, ITaskEvents {
+  SoulBoundTokenRole public immutable sbtContract;
+  SoulBoundAchievement public immutable achievementContract;
+  SoulBoundRedflag public immutable redflagContract;
 
-    struct Task {
-        uint256 id;
-        address provider;
-        address developer;
-        address[] auditors;
-        string title;
-        string description;
-        uint256 reward;
-        uint256 auditorReward;
-        uint256 developerReward;
-        TaskStatus status;
-        address escrowAddress;
-        uint256 deadline;
-        uint256 votingDeadline;
-        uint256 votesCount;
+  address public immutable protocolTreasury;
+
+  uint8 private constant DEVELOPER_SHARE = 67;
+  uint8 private constant AUDITOR_SHARE = 10; // 10% * 3 auditors = 30%
+  uint8 private constant PROTOCOL_FEE = 3; // 3% for the protocol
+  uint8 private constant MAX_DEVELOPER_CANDIDATES = 15;
+  uint8 private constant MAX_AUDITOR_CANDIDATES = 15;
+  uint8 private constant MAX_TASKS_PER_REQUEST = 100;
+  uint256 public taskCount;
+
+  struct Task {
+    uint256 id;
+    uint96 reward;
+    uint96 auditorReward;
+    uint96 developerReward;
+    uint32 deadline;
+    uint32 votingDeadline;
+    uint32 votesCount;
+    address escrowAddress;
+    address provider;
+    address developer;
+    address[] auditors;
+    string title;
+    string description;
+    TaskStatus status;
+  }
+
+  struct AuditVote {
+    bool hasVoted;
+    bool supportsDeveloper;
+    uint256 voteOrder;
+  }
+
+  mapping(uint256 => Task) public tasks;
+  mapping(uint256 => address[]) private developerCandidates;
+  mapping(uint256 => mapping(address => AuditVote)) public auditVotes;
+  mapping(uint256 => mapping(address => bool)) public firstThreeVotes;
+  mapping(uint256 => address[3]) public firstThreeVoters;
+  mapping(address => uint256[]) public providerTasks;
+  mapping(address => uint256[]) public developerTasks;
+  mapping(address => uint256[]) public auditorTasks;
+
+  error InvalidSBTAddress();
+  error AddressAlreadyHasSBT();
+  error NotTaskProvider();
+  error NotTaskDeveloper();
+  error NotTaskAuditor();
+  error InvalidAchievementAddress();
+  error InvalidRedflagAddress();
+  error InvalidTreasuryAddress();
+  error InvalidReward();
+  error InvalidDeadline();
+  error EmptyTitle();
+  error EmptyDescription();
+  error TaskNotOpen();
+  error MaxDevelopersReached();
+  error AlreadyApplied();
+  error MaxAuditorsReached();
+  error DeveloperNotAssigned();
+  error NotEnoughAuditors();
+  error PaymentMismatch();
+  error TaskNotInProgress();
+  error DeadlinePassed();
+  error NotAuthorized();
+  error TaskNotDisputed();
+  error AlreadyVoted();
+  error VotingPeriodEnded();
+  error TaskNotCompleted();
+  error ProtocolFeeTransferFailed();
+  error DeveloperNotApplied();
+  error NoDeveloperCandidates();
+  error InvalidTaskParameters();
+  error InvalidRoleForWithdrawal();
+  error PaymentWithdrawalFailed();
+  /**
+   * @notice Initializes the marketplace with required contracts
+   * @dev Sets up contract references and validates addresses
+   * @param _sbtAddress Address of the SoulBoundTokenRole contract
+   * @param _achievementAddress Address of the SoulBoundAchievement contract
+   * @param _redflagAddress Address of the SoulBoundRedflag contract
+   * @param _protocolTreasury Address of the Treasury contract
+   */
+  constructor(
+    address _sbtAddress,
+    address _achievementAddress,
+    address _redflagAddress,
+    address _protocolTreasury
+  ) {
+    if (_sbtAddress == address(0)) revert InvalidSBTAddress();
+    if (_achievementAddress == address(0)) revert InvalidAchievementAddress();
+    if (_redflagAddress == address(0)) revert InvalidRedflagAddress();
+    if (_protocolTreasury == address(0)) revert InvalidTreasuryAddress();
+
+    sbtContract = SoulBoundTokenRole(_sbtAddress);
+    achievementContract = SoulBoundAchievement(_achievementAddress);
+    redflagContract = SoulBoundRedflag(_redflagAddress);
+    protocolTreasury = _protocolTreasury;
+  }
+
+  modifier onlyTaskProvider() {
+    SoulBoundTokenRole.Role role = sbtContract.getRole(msg.sender);
+    if (role != SoulBoundTokenRole.Role.TaskProvider) revert NotTaskProvider();
+    _;
+  }
+
+  modifier onlyTaskDeveloper() {
+    SoulBoundTokenRole.Role role = sbtContract.getRole(msg.sender);
+    if (role != SoulBoundTokenRole.Role.TaskDeveloper) revert NotTaskDeveloper();
+    _;
+  }
+
+  modifier onlyTaskAuditor() {
+    SoulBoundTokenRole.Role role = sbtContract.getRole(msg.sender);
+    if (role != SoulBoundTokenRole.Role.TaskAuditor) revert NotTaskAuditor();
+    _;
+  }
+
+  /**
+   * @notice Requests a new SoulBound token for role-based access
+   * @dev Mints a new SBT if caller doesn't already have one
+   * @param role Role to be assigned to the token
+   */
+  function requestSBT(SoulBoundTokenRole.Role role) public {
+    if (sbtContract.hasToken(msg.sender)) revert AddressAlreadyHasSBT();
+    sbtContract.safeMint(msg.sender, role);
+  }
+
+  /**
+   * @notice Creates a new task in the marketplace
+   * @dev Only callable by task providers
+   * @param _title Title of the task
+   * @param _description Description of the task
+   * @param _deadline Deadline for task completion
+   * @param _reward Reward amount in ETH
+   */
+  function createTask(
+    string memory _title,
+    string memory _description,
+    uint32 _deadline,
+    uint96 _reward
+  ) public onlyTaskProvider {
+    if (!_validateTaskCreation(_reward, _deadline, _title, _description))
+      revert InvalidTaskParameters();
+
+    uint256 newTaskId = taskCount;
+    unchecked {
+      taskCount = newTaskId + 1;
     }
 
-    struct AuditVote {
-        bool hasVoted;
-        bool supportsDeveloper;
-        uint256 voteOrder;
+    Task storage task = tasks[newTaskId];
+    task.id = newTaskId;
+    task.provider = msg.sender;
+    task.title = _title;
+    task.description = _description;
+    task.reward = _reward;
+    task.deadline = _deadline;
+    task.status = TaskStatus.Created;
+
+    unchecked {
+      task.developerReward = (_reward * DEVELOPER_SHARE) / 100;
+      task.auditorReward = (_reward * AUDITOR_SHARE) / 100;
     }
 
-    enum TaskStatus {
-        Created,
-        InProgress,
-        Submitted,
-        Disputed,
-        Completed,
-        Cancelled,
-        CompletedWithDeveloperWon,
-        CompletedWithProviderWon
+    providerTasks[msg.sender].push(newTaskId);
+
+    emit TaskCreated(newTaskId, msg.sender, _title, _reward);
+  }
+
+  /**
+   * @notice Allows developers to apply for a task
+   * @dev Only callable by addresses with TaskDeveloper role
+   * @param taskId ID of the task to apply for
+   */
+  function applyForTaskAsDeveloper(uint256 taskId) public onlyTaskDeveloper {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Created) revert TaskNotOpen();
+    if (developerCandidates[taskId].length >= MAX_DEVELOPER_CANDIDATES)
+      revert MaxDevelopersReached();
+    if (_contains(developerCandidates[taskId], msg.sender)) revert AlreadyApplied();
+    developerCandidates[taskId].push(msg.sender);
+    emit DeveloperSubmitted(taskId, msg.sender);
+  }
+
+  /**
+   * @notice Allows auditors to apply for a task
+   * @dev Only callable by addresses with TaskAuditor role
+   * @param taskId ID of the task to apply for
+   */
+  function applyForTaskAsAuditor(uint256 taskId) public onlyTaskAuditor {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Created) revert TaskNotOpen();
+    if (task.auditors.length >= MAX_AUDITOR_CANDIDATES) revert MaxAuditorsReached();
+    if (_contains(task.auditors, msg.sender)) revert AlreadyApplied();
+
+    task.auditors.push(msg.sender);
+    auditorTasks[msg.sender].push(taskId);
+    emit AuditorSubmitted(taskId, msg.sender);
+  }
+
+  /**
+   * @notice Assigns a developer to a task
+   * @dev Only callable by task provider
+   * @param taskId ID of the task
+   * @param developer Address of the developer to assign
+   */
+  function assignDeveloper(uint256 taskId, address developer) public onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Created) revert TaskNotOpen();
+    if (developerCandidates[taskId].length == 0) revert NoDeveloperCandidates();
+    if (!_contains(developerCandidates[taskId], developer)) revert DeveloperNotApplied();
+
+    task.developer = developer;
+    developerTasks[developer].push(taskId);
+
+    emit DeveloperAssigned(taskId, developer);
+  }
+
+  /**
+   * @notice Starts a task by funding the escrow contract
+   * @dev Only callable by task provider, implements reentrancy protection
+   * @param taskId ID of the task to start
+   */
+  function startTask(uint256 taskId) public payable onlyTaskProvider nonReentrant {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Created) revert TaskNotOpen();
+    if (task.developer == address(0)) revert DeveloperNotAssigned();
+    if (task.auditors.length < 3) revert NotEnoughAuditors();
+    if (msg.value != task.reward) revert PaymentMismatch();
+
+    task.status = TaskStatus.InProgress;
+
+    uint256 protocolFee;
+    uint256 remainingAmount;
+    unchecked {
+      protocolFee = (msg.value * PROTOCOL_FEE) / 100;
+      remainingAmount = msg.value - protocolFee;
     }
 
-    uint256 public taskCount;
+    emit TaskStatusUpdated(taskId, TaskStatus.InProgress);
 
-    mapping(uint256 => Task) public tasks;
-    mapping(uint256 => address[]) private developerCandidates;
-    mapping(uint256 => mapping(address => AuditVote)) public auditVotes;
-    mapping(uint256 => mapping(address => bool)) public firstThreeVotes;
-    mapping(uint256 => address[3]) public firstThreeVoters;
-    mapping(address => uint256[]) public providerTasks;
-    mapping(address => uint256[]) public developerTasks;
-    mapping(address => uint256[]) public auditorTasks;
+    (bool success, ) = protocolTreasury.call{value: protocolFee}('');
+    if (!success) revert ProtocolFeeTransferFailed();
 
-    event TaskCreated(
-        uint256 indexed taskId,
-        address indexed provider,
-        string title,
-        uint256 reward
+    createEscrow(task, remainingAmount, taskId);
+
+    emit TaskStarted(taskId, task.reward, task.escrowAddress);
+  }
+
+  /**
+   * @notice Creates an escrow contract for a task
+   * @dev Internal function to handle escrow creation and funding
+   * @param task Task struct containing task details
+   * @param amount Amount to be escrowed
+   * @param taskId ID of the task
+   */
+  function createEscrow(Task storage task, uint256 amount, uint256 taskId) internal {
+    TaskEscrow escrow = new TaskEscrow{value: amount}(
+      address(this),
+      task.provider,
+      task.developer,
+      taskId,
+      amount,
+      task.auditorReward,
+      task.developerReward
     );
-    event TaskStarted(uint256 indexed taskId, uint256 reward, address escrowAddress);
-    event TaskStatusUpdated(uint256 indexed taskId, TaskStatus status);
-    event TaskCancelled(uint256 indexed taskId);
-    event DeveloperSubmitted(uint256 indexed taskId, address indexed developer);
-    event AuditorSubmitted(uint256 indexed taskId, address indexed auditor);
-    event DeveloperAssigned(uint256 indexed taskId, address indexed developer);
-    event AuditorAssigned(uint256 indexed taskId, address indexed auditor);
-    event WorkSubmitted(uint256 indexed taskId, address indexed developer, uint256 submissionTime);
-    event WorkAccepted(uint256 indexed taskId, address indexed provider, uint256 acceptanceTime);
-    event DisputeInitiated(uint256 indexed taskId, address indexed initiator, uint256 disputeTime);
-    event AuditorVoteSubmitted(uint256 indexed taskId, address indexed auditor, bool supportsDeveloper);
-    event DisputeResolved(uint256 indexed taskId, bool developerWon);
-    event TaskDeadlineUpdated(uint256 indexed taskId, uint256 newDeadline);
-    event DeveloperPenalized(uint256 indexed taskId, address indexed developer);
-    /**
-     * @notice Initializes the marketplace with required contracts
-     * @dev Sets up contract references and validates addresses
-     * @param _sbtAddress Address of the SoulBoundTokenRole contract
-     * @param _achievementAddress Address of the SoulBoundAchievement contract
-     * @param _redflagAddress Address of the SoulBoundRedflag contract
-     * @param _protocolTreasury Address of the Treasury contract
-     */
-    constructor(
-        address _sbtAddress,
-        address _achievementAddress,
-        address _redflagAddress,
-        address _protocolTreasury
-    ) {
-        require(_sbtAddress != address(0), "Invalid SBT address");
-        require(_achievementAddress != address(0), "Invalid achievement address");
-        require(_redflagAddress != address(0), "Invalid redflag address");
-        require(_protocolTreasury != address(0), "Invalid treasury address");
-        
-        sbtContract = SoulBoundTokenRole(_sbtAddress);
-        achievementContract = SoulBoundAchievement(_achievementAddress);
-        redflagContract = SoulBoundRedflag(_redflagAddress);
-        protocolTreasury = _protocolTreasury;
+    task.escrowAddress = address(escrow);
+  }
+
+  /**
+   * @notice Marks a task as completed
+   * @dev Only callable by task provider, triggers achievement updates
+   * @param taskId ID of the task to complete
+   */
+  function completeTask(uint256 taskId) public onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.InProgress) revert TaskNotInProgress();
+    task.status = TaskStatus.Completed;
+    emit TaskStatusUpdated(taskId, TaskStatus.Completed);
+    achievementContract.taskCompleted(task.developer);
+  }
+
+  /**
+   * @notice Allows participants to withdraw their payments
+   * @dev Handles both developer and auditor withdrawals
+   * @param taskId ID of the completed task
+   */
+  function withdrawPayment(uint256 taskId) external {
+    Task storage task = tasks[taskId];
+    if (
+      task.status != TaskStatus.Completed &&
+      task.status != TaskStatus.CompletedWithDeveloperWon &&
+      task.status != TaskStatus.CompletedWithProviderWon
+    ) revert TaskNotCompleted();
+    TaskEscrow escrow = TaskEscrow(task.escrowAddress);
+
+    if (sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskDeveloper) {
+      if (msg.sender != task.developer) revert NotTaskDeveloper();
+      if (!escrow.withdrawDeveloperPayment()) revert PaymentWithdrawalFailed();
+    } else if (sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskAuditor) {
+      if (!_contains(task.auditors, msg.sender)) revert NotTaskAuditor();
+      if (!escrow.withdrawAuditorPayment(msg.sender)) revert PaymentWithdrawalFailed();
+    } else {
+      revert InvalidRoleForWithdrawal();
     }
+  }
 
-    modifier onlyTaskProvider() {
-        require(sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskProvider, 
-                "Sender must be a TaskProvider");
-        _;
+  /**
+   * @notice Allows provider to refund the escrow when task is cancelled or completed
+   * @dev Only callable by task provider
+   * @param taskId ID of the task
+   */
+  function refundProvider(uint256 taskId) external onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    require(
+      task.status == TaskStatus.Cancelled || task.status == TaskStatus.CompletedWithProviderWon,
+      'Task not cancelled or completed'
+    );
+    TaskEscrow escrow = TaskEscrow(task.escrowAddress);
+    bool success = escrow.withdrawProviderPayment();
+    require(success, 'Provider payment withdrawal failed');
+  }
+
+  /**
+   * @notice Allows developer to submit their completed work
+   * @dev Can only be called by the assigned developer when task is in progress
+   * @param taskId ID of the task being submitted
+   */
+  function submitWork(uint256 taskId) external onlyTaskDeveloper {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.InProgress, 'Task not in progress');
+    require(msg.sender == task.developer, 'Not task developer');
+    // slither-disable-next-line timestamp
+    require(block.timestamp <= task.deadline, 'Task deadline passed');
+    task.status = TaskStatus.Submitted;
+    emit WorkSubmitted(taskId, msg.sender, block.timestamp);
+  }
+
+  /**
+   * @notice Allows provider to accept submitted work
+   * @dev Sets task as completed and enables developer payment
+   * @param taskId ID of the task to accept
+   */
+  function acceptWork(uint256 taskId) external onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.Submitted, 'Work not submitted');
+    task.status = TaskStatus.Completed;
+    emit WorkAccepted(taskId, msg.sender, block.timestamp);
+    TaskEscrow(task.escrowAddress).setPaymentStatus(TaskEscrow.PaymentStatus.WorkAccepted);
+  }
+
+  /**
+   * @notice Initiates a dispute for a submitted task
+   * @dev Can be called by either provider or developer
+   * @param taskId ID of the task to dispute
+   */
+  function initiateDispute(uint256 taskId) external {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.Submitted, 'Work not submitted');
+    require(msg.sender == task.provider || msg.sender == task.developer, 'Not authorized');
+    task.status = TaskStatus.Disputed;
+    task.votingDeadline = uint32(block.timestamp + 1 weeks);
+    emit DisputeInitiated(taskId, msg.sender, block.timestamp);
+  }
+
+  /**
+   * @notice Allows auditors to cast their vote in a dispute
+   * @dev Only assigned auditors can vote once per task
+   * @param taskId ID of the disputed task
+   * @param supportsDeveloper True if voting in favor of developer, false otherwise
+   */
+  function submitAuditVote(uint256 taskId, bool supportsDeveloper) external onlyTaskAuditor {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Disputed) revert TaskNotDisputed();
+    // slither-disable-next-line timestamp
+    if (block.timestamp > task.votingDeadline) revert VotingPeriodEnded();
+    if (!_contains(task.auditors, msg.sender)) revert NotTaskAuditor();
+
+    AuditVote storage vote = auditVotes[taskId][msg.sender];
+    if (vote.hasVoted) revert AlreadyVoted();
+
+    uint32 currentVoteCount = task.votesCount;
+
+    vote.hasVoted = true;
+    vote.supportsDeveloper = supportsDeveloper;
+    vote.voteOrder = currentVoteCount + 1;
+
+    emit AuditorVoteSubmitted(taskId, msg.sender, supportsDeveloper);
+
+    if (currentVoteCount < 3) {
+      firstThreeVoters[taskId][currentVoteCount] = msg.sender;
+      firstThreeVotes[taskId][msg.sender] = supportsDeveloper;
+      unchecked {
+        task.votesCount = currentVoteCount + 1;
+      }
+
+      if (currentVoteCount == 2) {
+        _resolveDispute(taskId);
+      }
     }
+  }
 
-    modifier onlyTaskDeveloper() {
-        require(sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskDeveloper, 
-                "Sender must be a TaskDeveloper");
-        _;
-    }
+  /**
+   * @notice Internal function to resolve disputes based on auditor votes
+   * @dev Requires all three auditors to have voted, implements majority voting
+   * @param taskId ID of the disputed task
+   */
+  function _resolveDispute(uint256 taskId) internal {
+    Task storage task = tasks[taskId];
+    if (task.status != TaskStatus.Disputed) revert('Task not disputed');
+    if (task.votesCount != 3) revert('Not enough votes');
 
-    modifier onlyTaskAuditor() {
-        require(sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskAuditor, 
-                "Sender must be a TaskAuditor");
-        _;
-    }
+    address[3] memory voters = firstThreeVoters[taskId];
+    uint256 votesForDev;
 
-    /**
-     * @notice Requests a new SoulBound token for role-based access
-     * @dev Mints a new SBT if caller doesn't already have one
-     * @param role Role to be assigned to the token
-     */
-    function requestSBT(SoulBoundTokenRole.Role role) public {
-        require(!sbtContract.hasToken(msg.sender), "Address already has a SBT");
-        sbtContract.safeMint(msg.sender, role);
-    }
-
-    /**
-     * @notice Creates a new task in the marketplace
-     * @dev Only callable by task providers
-     * @param _title Title of the task
-     * @param _description Description of the task
-     * @param _deadline Deadline for task completion
-     * @param _reward Reward amount in ETH
-     */
-    function createTask(string memory _title, string memory _description, uint256 _deadline, uint256 _reward) public onlyTaskProvider {
-        require(_reward > 0, "Reward must be greater than 0");
-        require(_deadline > block.timestamp, "Deadline must be in the future");
-        require(bytes(_title).length > 0, "Title cannot be empty");
-        require(bytes(_description).length > 0, "Description cannot be empty");
-
-        uint256 taskId = taskCount;
-        Task storage task = tasks[taskId];
-
-        task.id = taskId;
-        task.provider = msg.sender;
-        task.title = _title;
-        task.description = _description;
-        task.reward = _reward;
-        task.deadline = _deadline;
-        task.status = TaskStatus.Created;
-        task.developerReward = (_reward * DEVELOPER_SHARE) / 100;
-        task.auditorReward = (_reward * AUDITOR_SHARE) / 100;
-
-        providerTasks[msg.sender].push(taskId);
-        taskCount++;
-
-        emit TaskCreated(taskId, msg.sender, _title, _reward);
-    }
-
-    /**
-     * @notice Allows developers to apply for a task
-     * @dev Only callable by addresses with TaskDeveloper role
-     * @param taskId ID of the task to apply for
-     */
-    function applyForTaskAsDeveloper(uint256 taskId) public onlyTaskDeveloper {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Task not open for developer applications");
-        require(developerCandidates[taskId].length < MAX_DEVELOPER_CANDIDATES, "Maximum developer candidates reached");
-        require(!_contains(developerCandidates[taskId], msg.sender), "Already applied for this task");
-        developerCandidates[taskId].push(msg.sender);
-        emit DeveloperSubmitted(taskId, msg.sender);
-    }
-
-    /**
-     * @notice Allows auditors to apply for a task
-     * @dev Only callable by addresses with TaskAuditor role
-     * @param taskId ID of the task to apply for
-     */
-    function applyForTaskAsAuditor(uint256 taskId) public onlyTaskAuditor {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Task not open for auditor applications");
-        require(task.auditors.length < MAX_AUDITOR_CANDIDATES, "Maximum auditors candidates reached");
-        require(!_contains(task.auditors, msg.sender), "Already applied for this task");
-        
-        task.auditors.push(msg.sender);
-        auditorTasks[msg.sender].push(taskId);
-        emit AuditorSubmitted(taskId, msg.sender);
-    }
-
-    /**
-     * @notice Assigns a developer to a task
-     * @dev Only callable by task provider
-     * @param taskId ID of the task
-     * @param developer Address of the developer to assign
-     */
-    function assignDeveloper(uint256 taskId, address developer) public onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Task not in correct state");
-        require(developerCandidates[taskId].length > 0, "No developer candidates");
-        require(_contains(developerCandidates[taskId], developer), "Developer has not applied for this task");
-        
-        task.developer = developer;
-        developerTasks[developer].push(taskId);
-        
-        emit DeveloperAssigned(taskId, developer);
-    }
-
-    /**
-     * @notice Starts a task by funding the escrow contract
-     * @dev Only callable by task provider, implements reentrancy protection
-     * @param taskId ID of the task to start
-     */
-    function startTask(uint256 taskId) public payable onlyTaskProvider nonReentrant {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Task not in correct state");
-        require(task.developer != address(0), "Developer not assigned");
-        require(task.auditors.length >= 3, "Not enough auditors assigned");
-        require(msg.value == task.reward, "Payment must match announced reward");
-
-        task.status = TaskStatus.InProgress;
-
-        uint256 protocolFee = (msg.value * PROTOCOL_FEE) / 100;
-        uint256 remainingAmount = msg.value - protocolFee;
-
-        emit TaskStatusUpdated(taskId, TaskStatus.InProgress);
-        (bool success, ) = protocolTreasury.call{value: protocolFee}("");
-        require(success, "Protocol fee transfer failed");
-
-        createEscrow(task, remainingAmount, taskId);
-
-        emit TaskStarted(taskId, task.reward, task.escrowAddress);
-    }
-
-    /**
-     * @notice Creates an escrow contract for a task
-     * @dev Internal function to handle escrow creation and funding
-     * @param task Task struct containing task details
-     * @param amount Amount to be escrowed
-     * @param taskId ID of the task
-     */
-    function createEscrow(Task storage task, uint256 amount, uint256 taskId) internal {
-        TaskEscrow escrow = new TaskEscrow{value: amount}(
-            address(this),
-            task.provider,
-            task.developer,
-            taskId,
-            amount,
-            task.auditorReward,
-            task.developerReward
-        );
-        task.escrowAddress = address(escrow);
-    }
-
-    /**
-     * @notice Marks a task as completed
-     * @dev Only callable by task provider, triggers achievement updates
-     * @param taskId ID of the task to complete
-     */
-    function completeTask(uint256 taskId) public onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.InProgress, "Task not in correct state");
-        task.status = TaskStatus.Completed;
-        emit TaskStatusUpdated(taskId, TaskStatus.Completed);
-        achievementContract.taskCompleted(task.developer);
-    }
-
-    /**
-     * @notice Allows participants to withdraw their payments
-     * @dev Handles both developer and auditor withdrawals
-     * @param taskId ID of the completed task
-     */
-    function withdrawPayment(uint256 taskId) external {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Completed || task.status == TaskStatus.CompletedWithDeveloperWon || task.status == TaskStatus.CompletedWithProviderWon, "Task not completed");
-        TaskEscrow escrow = TaskEscrow(task.escrowAddress);
-
-        if (sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskDeveloper) {
-            require(msg.sender == task.developer, "Not the task developer");
-            bool success = escrow.withdrawDeveloperPayment();
-            require(success, "Developer payment withdrawal failed");
-        } 
-        else if (sbtContract.getRole(msg.sender) == SoulBoundTokenRole.Role.TaskAuditor) {
-            require(_contains(task.auditors, msg.sender), "Not an auditor of this task");
-            bool success = escrow.withdrawAuditorPayment(msg.sender);
-            require(success, "Auditor payment withdrawal failed");
-        } else {
-            revert("Invalid role for withdrawal");
+    for (uint256 i = 0; i < 3; ) {
+      if (firstThreeVotes[taskId][voters[i]]) {
+        unchecked {
+          ++votesForDev;
         }
+      }
+      unchecked {
+        ++i;
+      }
     }
 
-    /**
-     * @notice Allows provider to refund the escrow when task is cancelled or completed
-     * @dev Only callable by task provider
-     * @param taskId ID of the task
-     */
-    function refundProvider(uint256 taskId) external onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Cancelled || task.status == TaskStatus.CompletedWithProviderWon, "Task not cancelled or completed");
-        TaskEscrow escrow = TaskEscrow(task.escrowAddress);
-        bool success = escrow.withdrawProviderPayment();
-        require(success, "Provider payment withdrawal failed");
+    bool developerWon = votesForDev >= 2;
+    task.status = developerWon
+      ? TaskStatus.CompletedWithDeveloperWon
+      : TaskStatus.CompletedWithProviderWon;
+
+    emit DisputeResolved(taskId, developerWon);
+
+    if (developerWon) {
+      achievementContract.taskCompleted(task.developer);
+    } else {
+      redflagContract.recordLostDispute(task.developer);
     }
 
-    /**
-     * @notice Allows developer to submit their completed work
-     * @dev Can only be called by the assigned developer when task is in progress
-     * @param taskId ID of the task being submitted
-     */
-    function submitWork(uint256 taskId) external onlyTaskDeveloper {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.InProgress, "Task not in progress");
-        require(msg.sender == task.developer, "Not task developer");
-        // slither-disable-next-line timestamp
-        require(block.timestamp <= task.deadline, "Task deadline passed");
-        task.status = TaskStatus.Submitted;
-        emit WorkSubmitted(taskId, msg.sender, block.timestamp);
-    }
+    TaskEscrow(task.escrowAddress).setPaymentStatus(
+      developerWon ? TaskEscrow.PaymentStatus.DeveloperWon : TaskEscrow.PaymentStatus.ProviderWon
+    );
+    TaskEscrow(task.escrowAddress).setVotingResults(
+      voters,
+      [
+        firstThreeVotes[taskId][voters[0]],
+        firstThreeVotes[taskId][voters[1]],
+        firstThreeVotes[taskId][voters[2]]
+      ]
+    );
+  }
 
-    /**
-     * @notice Allows provider to accept submitted work
-     * @dev Sets task as completed and enables developer payment
-     * @param taskId ID of the task to accept
-     */
-    function acceptWork(uint256 taskId) external onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Submitted, "Work not submitted");
-        task.status = TaskStatus.Completed;
-        emit WorkAccepted(taskId, msg.sender, block.timestamp);
-        TaskEscrow(task.escrowAddress).setPaymentStatus(TaskEscrow.PaymentStatus.WorkAccepted);
-    }
+  /**
+   * @notice Allows provider to cancel a task before it starts
+   * @dev Can only be called for tasks in Created state
+   * @param taskId ID of the task to cancel
+   */
+  function cancelTask(uint256 taskId) external onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.Created, 'Cannot cancel task');
+    task.status = TaskStatus.Cancelled;
+    emit TaskCancelled(taskId);
+  }
 
-    /**
-     * @notice Initiates a dispute for a submitted task
-     * @dev Can be called by either provider or developer
-     * @param taskId ID of the task to dispute
-     */
-    function initiateDispute(uint256 taskId) external {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Submitted, "Work not submitted");
-        require(msg.sender == task.provider || msg.sender == task.developer, "Not authorized");
-        task.status = TaskStatus.Disputed;
-        task.votingDeadline = block.timestamp + 1 weeks;
-        emit DisputeInitiated(taskId, msg.sender, block.timestamp);
-    }
+  /**
+   * @notice Gets the status of votes for a task
+   * @param taskId ID of the task
+   * @return votesFor Number of votes in favor of the developer
+   * @return totalVotes Total number of votes cast
+   * @return isComplete Whether all votes have been cast
+   */
+  function getVoteStatus(
+    uint256 taskId
+  ) external view returns (uint32 votesFor, uint32 totalVotes, bool isComplete) {
+    Task storage task = tasks[taskId];
+    uint32 votesForDev;
+    uint32 voteCount = task.votesCount;
+    uint32 maxVotes = voteCount < 3 ? voteCount : 3;
 
-    /**
-     * @notice Allows auditors to cast their vote in a dispute
-     * @dev Only assigned auditors can vote once per task
-     * @param taskId ID of the disputed task
-     * @param supportsDeveloper True if voting in favor of developer, false otherwise
-     */
-    function submitAuditVote(uint256 taskId, bool supportsDeveloper) external onlyTaskAuditor {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Disputed, "Task not disputed");
-        // slither-disable-next-line timestamp
-        require(block.timestamp <= task.votingDeadline, "Voting period has ended");
-        require(_contains(task.auditors, msg.sender), "Not an eligible auditor");
-        
-        AuditVote storage vote = auditVotes[taskId][msg.sender];
-        require(!vote.hasVoted, "Already voted");
-
-        vote.hasVoted = true;
-        vote.supportsDeveloper = supportsDeveloper;
-        
-        emit AuditorVoteSubmitted(taskId, msg.sender, supportsDeveloper);
-        
-        if(task.votesCount < 3) {
-            vote.voteOrder = task.votesCount + 1;
-            firstThreeVoters[taskId][task.votesCount] = msg.sender;
-            firstThreeVotes[taskId][msg.sender] = supportsDeveloper;
-            task.votesCount++;
-            
-            if(task.votesCount == 3) {
-                _resolveDispute(taskId);
-            }
+    for (uint32 i = 0; i < maxVotes; ) {
+      if (firstThreeVotes[taskId][firstThreeVoters[taskId][i]]) {
+        unchecked {
+          ++votesForDev;
         }
+      }
+      unchecked {
+        ++i;
+      }
     }
 
-    /**
-     * @notice Internal function to resolve disputes based on auditor votes
-     * @dev Requires all three auditors to have voted, implements majority voting
-     * @param taskId ID of the disputed task
-     */
-    function _resolveDispute(uint256 taskId) internal {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Disputed, "Task not disputed");
-        require(task.votesCount == 3, "Not enough votes");
-        
-        address[3] memory voters = firstThreeVoters[taskId];
-        bool[3] memory votes = [false, false, false];
-        uint256 votesForDev = 0;
+    return (votesForDev, voteCount, voteCount == 3);
+  }
 
-        for(uint256 i = 0; i < 3; i++) {
-            votes[i] = firstThreeVotes[taskId][voters[i]];
-            if(votes[i]) votesForDev++;
-        }
+  /**
+   * @notice Gets the candidates for a task
+   * @param taskId ID of the task
+   * @return developers Array of developer candidates' addresses
+   */
+  function getDeveloperCandidates(
+    uint256 taskId
+  ) external view returns (address[] memory developers) {
+    return (developerCandidates[taskId]);
+  }
 
-        bool developerWon = votesForDev >= 2;
-        task.status = developerWon ? TaskStatus.CompletedWithDeveloperWon : TaskStatus.CompletedWithProviderWon;
-        
-        emit DisputeResolved(taskId, developerWon);
-        
-        if (developerWon) {
-            achievementContract.taskCompleted(task.developer);
-        } else {
-            redflagContract.recordLostDispute(task.developer);
-        }
+  /**
+   * @notice Gets the auditors assigned to a task
+   * @param taskId ID of the task
+   * @return auditors Array of auditor addresses
+   */
+  function getTaskAuditors(uint256 taskId) public view returns (address[] memory auditors) {
+    Task storage task = tasks[taskId];
+    return (task.auditors);
+  }
 
-        TaskEscrow(task.escrowAddress).setPaymentStatus(
-            developerWon ? TaskEscrow.PaymentStatus.DeveloperWon : TaskEscrow.PaymentStatus.ProviderWon
-        );
-        TaskEscrow(task.escrowAddress).setVotingResults(voters, votes);
+  /**
+   * @notice Gets all tasks for a provider
+   * @param provider Address of the provider
+   * @return tasks Array of task IDs
+   */
+  function getAllProviderTasks(address provider) external view returns (uint256[] memory) {
+    return providerTasks[provider];
+  }
+
+  /**
+   * @notice Gets all tasks for an auditor
+   * @param auditor Address of the auditor
+   * @return tasks Array of task IDs
+   */
+  function getAllAuditorTasks(address auditor) external view returns (uint256[] memory) {
+    return auditorTasks[auditor];
+  }
+
+  /**
+   * @notice Gets all tasks for a developer
+   * @param developer Address of the developer
+   * @return tasks Array of task IDs
+   */
+  function getAllDeveloperTasks(address developer) external view returns (uint256[] memory) {
+    return developerTasks[developer];
+  }
+
+  /**
+   * @notice Updates the deadline for a task
+   * @dev Only callable by task provider
+   * @param taskId ID of the task
+   * @param deadline New deadline timestamp
+   */
+  function updateTaskDeadline(uint256 taskId, uint32 deadline) public onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.Created, 'Task not in correct state');
+    task.deadline = deadline;
+    emit TaskDeadlineUpdated(taskId, deadline);
+  }
+
+  /**
+   * @notice Checks if the deadline has passed and penalizes the developer
+   * @dev Called by the provider to penalize the developer if the deadline is passed
+   * @param taskId ID of the task
+   */
+  function checkDeadlineAndPenalize(uint256 taskId) public onlyTaskProvider {
+    Task storage task = tasks[taskId];
+    require(task.status == TaskStatus.InProgress, 'Task not in progress');
+    // slither-disable-next-line timestamp
+    require(block.timestamp > task.deadline, 'Deadline not passed yet');
+    task.status = TaskStatus.Cancelled;
+    emit DeveloperPenalized(taskId, task.developer);
+
+    redflagContract.recordLostDispute(task.developer);
+    TaskEscrow(task.escrowAddress).setPaymentStatus(TaskEscrow.PaymentStatus.Cancelled);
+  }
+
+  /**
+   * @notice Checks if an element is in an array
+   * @param array The array to check
+   * @param element The element to check for
+   * @return bool True if the element is in the array, false otherwise
+   */
+  function _contains(address[] storage array, address element) internal view returns (bool) {
+    uint256 length = array.length;
+    for (uint256 i = 0; i < length; ) {
+      if (array[i] == element) {
+        return true;
+      }
+      unchecked {
+        ++i;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * @notice Gets multiple tasks details at once
+   * @param taskIds Array of task IDs to fetch
+   * @return Task[] Array of task details
+   */
+  function getTasksDetails(uint256[] calldata taskIds) external view returns (Task[] memory) {
+    require(taskIds.length <= MAX_TASKS_PER_REQUEST, 'Too many tasks requested');
+    Task[] memory tasksList = new Task[](taskIds.length);
+    uint256 length = taskIds.length;
+    for (uint256 i = 0; i < length; ) {
+      require(taskIds[i] < taskCount, 'Invalid task ID');
+      tasksList[i] = tasks[taskIds[i]];
+      unchecked {
+        ++i;
+      }
     }
 
-    /**
-     * @notice Allows provider to cancel a task before it starts
-     * @dev Can only be called for tasks in Created state
-     * @param taskId ID of the task to cancel
-     */
-    function cancelTask(uint256 taskId) external onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Cannot cancel task");
-        task.status = TaskStatus.Cancelled;
-        emit TaskCancelled(taskId);
-    }
+    return tasksList;
+  }
 
-    /**
-     * @notice Gets the status of votes for a task
-     * @param taskId ID of the task
-     * @return votesFor Number of votes in favor of the developer
-     * @return totalVotes Total number of votes cast
-     * @return isComplete Whether all votes have been cast
-     */
-    function getVoteStatus(uint256 taskId) external view returns (
-        uint256 votesFor,
-        uint256 totalVotes,
-        bool isComplete
-    ) {
-        Task storage task = tasks[taskId];
-        uint256 votesForDev = 0;
-        
-        for(uint256 i = 0; i < task.votesCount && i < 3; i++) {
-            if(firstThreeVotes[taskId][firstThreeVoters[taskId][i]]) {
-                votesForDev++;
-            }
-        }
-        
-        return (votesForDev, task.votesCount, task.votesCount == 3);
-    }
-
-    /**
-     * @notice Gets the candidates for a task
-     * @param taskId ID of the task
-     * @return developers Array of developer candidates' addresses
-     */
-    function getDeveloperCandidates(uint256 taskId) external view returns (
-        address[] memory developers
-    ) {
-        return (developerCandidates[taskId]);
-    }
-
-    /**
-     * @notice Gets the auditors assigned to a task
-     * @param taskId ID of the task
-     * @return auditors Array of auditor addresses
-     */
-    function getTaskAuditors(uint256 taskId) public view returns (
-        address[] memory auditors
-    ) {
-        Task storage task = tasks[taskId];
-        return (task.auditors);
-    }
-
-    /**
-     * @notice Gets all tasks for a provider
-     * @param provider Address of the provider
-     * @return tasks Array of task IDs
-     */
-    function getAllProviderTasks(address provider) external view returns (uint256[] memory) {
-        return providerTasks[provider];
-    }
-
-    /**
-     * @notice Gets all tasks for an auditor
-     * @param auditor Address of the auditor
-     * @return tasks Array of task IDs
-     */
-    function getAllAuditorTasks(address auditor) external view returns (uint256[] memory) {
-        return auditorTasks[auditor];
-    }
-
-    /**
-     * @notice Gets all tasks for a developer
-     * @param developer Address of the developer
-     * @return tasks Array of task IDs
-     */
-    function getAllDeveloperTasks(address developer) external view returns (uint256[] memory) {
-        return developerTasks[developer];
-    }
-
-    /**
-     * @notice Updates the deadline for a task
-     * @dev Only callable by task provider
-     * @param taskId ID of the task
-     * @param deadline New deadline timestamp
-     */
-    function updateTaskDeadline(uint256 taskId, uint256 deadline) public onlyTaskProvider { 
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.Created, "Task not in correct state");
-        task.deadline = deadline;
-        emit TaskDeadlineUpdated(taskId, deadline);
-    }
-
-
-    /**
-     * @notice Checks if the deadline has passed and penalizes the developer
-     * @dev Called by the provider to penalize the developer if the deadline is passed
-     * @param taskId ID of the task
-     */
-    function checkDeadlineAndPenalize(uint256 taskId) public onlyTaskProvider {
-        Task storage task = tasks[taskId];
-        require(task.status == TaskStatus.InProgress, "Task not in progress");
-        // slither-disable-next-line timestamp    
-        require(block.timestamp > task.deadline, "Deadline not passed yet");
-        task.status = TaskStatus.Cancelled;
-        emit DeveloperPenalized(taskId, task.developer);
-        
-        redflagContract.recordLostDispute(task.developer);
-        TaskEscrow(task.escrowAddress).setPaymentStatus(TaskEscrow.PaymentStatus.Cancelled);
-    }
-
-    /**
-     * @notice Checks if an element is in an array
-     * @param array The array to check
-     * @param element The element to check for
-     * @return bool True if the element is in the array, false otherwise
-     */
-    function _contains(address[] storage array, address element) internal view returns (bool) {
-        for (uint i = 0; i < array.length; i++) {
-            if (array[i] == element) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * @notice Gets multiple tasks details at once
-     * @param taskIds Array of task IDs to fetch
-     * @return Task[] Array of task details
-     */
-    function getTasksDetails(uint256[] calldata taskIds) external view returns (Task[] memory) {
-        require(taskIds.length <= MAX_TASKS_PER_REQUEST, "Too many tasks requested");
-        Task[] memory tasksList = new Task[](taskIds.length);
-        uint256 length = taskIds.length;
-        for (uint256 i = 0; i < length; i++) {
-            require(taskIds[i] < taskCount, "Invalid task ID");
-            tasksList[i] = tasks[taskIds[i]];
-        }
-        
-        return tasksList;
-    }
-} 
+  /**
+   * @notice Validates task creation parameters
+   * @dev Checks if all task creation parameters are valid
+   * @param _reward Reward amount in ETH
+   * @param _deadline Deadline for task completion
+   * @param _title Title of the task
+   * @param _description Description of the task
+   * @return bool True if all parameters are valid, false otherwise
+   */
+  function _validateTaskCreation(
+    uint96 _reward,
+    uint32 _deadline,
+    string memory _title,
+    string memory _description
+  ) internal view returns (bool) {
+    return (_reward > 0 &&
+      _deadline > block.timestamp &&
+      bytes(_title).length > 0 &&
+      bytes(_description).length > 0);
+  }
+}

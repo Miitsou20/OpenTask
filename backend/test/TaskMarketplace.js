@@ -88,7 +88,7 @@ describe("TaskMarketplace", function () {
         it("Should not allow requesting multiple SBTs", async function () {
             await taskMarketplace.connect(provider).requestSBT(Role.TaskProvider);
             await expect(taskMarketplace.connect(provider).requestSBT(Role.TaskDeveloper))
-                .to.be.revertedWith("Address already has a SBT");
+                .to.be.revertedWithCustomError(taskMarketplace, "AddressAlreadyHasSBT");
         });
     });
 
@@ -115,7 +115,7 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow creating task with zero reward", async function () {
             await expect(taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, 0))
-                .to.be.revertedWith("Reward must be greater than 0");
+                .to.be.revertedWithCustomError(taskMarketplace, "InvalidTaskParameters");
         });
         it("Should return the correct taskDetails", async function () {
             await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
@@ -124,7 +124,6 @@ describe("TaskMarketplace", function () {
             expect(taskDetails[0].reward).to.equal(reward);
             expect(taskDetails[0].deadline).to.equal(deadline);
         });
-
         it("Should return the tasks for a provider", async function () {
             await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
             const taskIds = await taskMarketplace.getAllProviderTasks(provider.address);
@@ -155,10 +154,10 @@ describe("TaskMarketplace", function () {
             }
             const lastDev = signers[15 + 9];
             await taskMarketplace.connect(lastDev).requestSBT(Role.TaskDeveloper);
-            await expect(taskMarketplace.connect(lastDev).applyForTaskAsDeveloper(taskId)).to.be.revertedWith("Maximum developer candidates reached");
+            await expect(taskMarketplace.connect(lastDev).applyForTaskAsDeveloper(taskId)).to.be.revertedWithCustomError(taskMarketplace, "MaxDevelopersReached");
         });
         it("Should not allow auditor to apply as developer", async function () {
-            await expect(taskMarketplace.connect(auditor1).applyForTaskAsDeveloper(taskId)).to.be.revertedWith("Sender must be a TaskDeveloper");
+            await expect(taskMarketplace.connect(auditor1).applyForTaskAsDeveloper(taskId)).to.be.revertedWithCustomError(taskMarketplace, "NotTaskDeveloper");
         });
         it("Should allow auditor to apply", async function () {
             await expect(taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId))
@@ -166,7 +165,7 @@ describe("TaskMarketplace", function () {
                 .withArgs(taskId, auditor1.address);
         });
         it("Should not allow developer to apply as auditor", async function () {
-            await expect(taskMarketplace.connect(developer).applyForTaskAsAuditor(taskId)).to.be.revertedWith("Sender must be a TaskAuditor");
+            await expect(taskMarketplace.connect(developer).applyForTaskAsAuditor(taskId)).to.be.revertedWithCustomError(taskMarketplace, "NotTaskAuditor");
         });
         it("Should not allow more than MAX_CANDIDATES auditors", async function () {
             const signers = await ethers.getSigners();
@@ -177,7 +176,7 @@ describe("TaskMarketplace", function () {
             }
             const lastDev = signers[15 + 9];
             await taskMarketplace.connect(lastDev).requestSBT(Role.TaskAuditor);
-            await expect(taskMarketplace.connect(lastDev).applyForTaskAsAuditor(taskId)).to.be.revertedWith("Maximum auditors candidates reached");
+            await expect(taskMarketplace.connect(lastDev).applyForTaskAsAuditor(taskId)).to.be.revertedWithCustomError(taskMarketplace, "MaxAuditorsReached");
         });
         it("Should add developer to developerCandidates", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
@@ -185,7 +184,7 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow developer to apply twice", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
-            await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId)).to.be.revertedWith("Already applied for this task");
+            await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId)).to.be.revertedWithCustomError(taskMarketplace, "AlreadyApplied");
         });
         it("Should add auditor to auditors", async function () {
             await taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId);
@@ -193,7 +192,7 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow auditor to apply twice", async function () {
             await taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId);
-            await expect(taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId)).to.be.revertedWith("Already applied for this task");
+            await expect(taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId)).to.be.revertedWithCustomError(taskMarketplace, "AlreadyApplied");
         });
         it("Should not allow auditor to apply for a task that is not open for applications", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
@@ -202,7 +201,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor3).applyForTaskAsAuditor(taskId);
             await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
-            await expect(taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId)).to.be.revertedWith("Task not open for auditor applications");
+            await expect(taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId)).to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
         it("Should not allow developer to apply for a task that is not open for applications", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
@@ -211,7 +210,7 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(auditor3).applyForTaskAsAuditor(taskId);
             await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
-            await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId)).to.be.revertedWith("Task not open for developer applications");
+            await expect(taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId)).to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
         it("Should return the tasks for an auditor", async function () {
             await taskMarketplace.connect(auditor1).applyForTaskAsAuditor(taskId);
@@ -230,15 +229,15 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(provider).createTask("Title: Test Task", "Description: Test Task", deadline, reward);
         });
         it("Should not allow non-provider to assign developer", async function () {
-            await expect(taskMarketplace.connect(auditor1).assignDeveloper(taskId, developer.address)).to.be.revertedWith("Sender must be a TaskProvider");
+            await expect(taskMarketplace.connect(auditor1).assignDeveloper(taskId, developer.address)).to.be.revertedWithCustomError(taskMarketplace, "NotTaskProvider");
         });
         it("Should revert if no developer candidates", async function () {
-            await expect(taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address)).to.be.revertedWith("No developer candidates");
+            await expect(taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address)).to.be.revertedWithCustomError(taskMarketplace, "NoDeveloperCandidates");
         });
         it("Should not allow assigning developer who hasn't applied", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
             await expect(taskMarketplace.connect(provider).assignDeveloper(taskId, auditor1.address))
-                .to.be.revertedWith("Developer has not applied for this task");
+                .to.be.revertedWithCustomError(taskMarketplace, "DeveloperNotApplied");
         });
         it("Should allow assigning developer who has applied", async function () {
             await taskMarketplace.connect(developer).applyForTaskAsDeveloper(taskId);
@@ -275,22 +274,22 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow non-provider to start task", async function () {
             await expect(taskMarketplace.connect(developer).startTask(taskId, { value: reward }))
-                .to.be.revertedWith("Sender must be a TaskProvider");
+                .to.be.revertedWithCustomError(taskMarketplace, "NotTaskProvider");
         });
         it("Should not allow starting without a developer", async function () {
             await expect(taskMarketplace.connect(provider).startTask(taskId, { value: reward }))
-                .to.be.revertedWith("Developer not assigned");
+                .to.be.revertedWithCustomError(taskMarketplace, "DeveloperNotAssigned");
         });
         it("Should not allow starting without enough auditors", async function () {
             await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
             await expect(taskMarketplace.connect(provider).startTask(taskId, { value: reward }))
-                .to.be.revertedWith("Not enough auditors assigned");
+                .to.be.revertedWithCustomError(taskMarketplace, "NotEnoughAuditors");
         });
         it("Should not allow starting without enough reward", async function () {
             await taskMarketplace.connect(auditor3).applyForTaskAsAuditor(taskId);
             await taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address);
             await expect(taskMarketplace.connect(provider).startTask(taskId, { value: ethers.parseEther("0.01") }))
-                .to.be.revertedWith("Payment must match announced reward");
+                .to.be.revertedWithCustomError(taskMarketplace, "PaymentMismatch");
         });
         it("Should start task with correct parameters", async function () {
             await taskMarketplace.connect(auditor3).applyForTaskAsAuditor(taskId);
@@ -337,11 +336,11 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow non-provider to complete task", async function () {
             await expect(taskMarketplace.connect(developer).completeTask(taskId))
-            .to.be.revertedWith("Sender must be a TaskProvider");
+            .to.be.revertedWithCustomError(taskMarketplace, "NotTaskProvider");
         });
         it("Should not allow completing task that is not in progress", async function () {
             await expect(taskMarketplace.connect(provider).completeTask(taskId))
-            .to.be.revertedWith("Task not in correct state");
+            .to.be.revertedWithCustomError(taskMarketplace, "TaskNotInProgress");
         });
         it("Should allow provider to complete task", async function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
@@ -364,23 +363,23 @@ describe("TaskMarketplace", function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
             await taskMarketplace.connect(developer2).requestSBT(Role.TaskDeveloper);
             await expect(taskMarketplace.connect(developer2).applyForTaskAsDeveloper(taskId))
-                .to.be.revertedWith("Task not open for developer applications");
+                .to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
         it("Should not allow auditor to apply for task in wrong state", async function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
             await taskMarketplace.connect(auditor4).requestSBT(Role.TaskAuditor);
             await expect(taskMarketplace.connect(auditor4).applyForTaskAsAuditor(taskId))
-                .to.be.revertedWith("Task not open for auditor applications");
+                .to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
         it("Should not allow provider to assign developer in wrong state", async function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
             await expect(taskMarketplace.connect(provider).assignDeveloper(taskId, developer.address))
-                .to.be.revertedWith("Task not in correct state");
+                .to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
         it("Should not allow provider to start task in wrong state", async function () {
             await taskMarketplace.connect(provider).startTask(taskId, { value: reward });
             await expect(taskMarketplace.connect(provider).startTask(taskId, { value: reward }))
-                .to.be.revertedWith("Task not in correct state");
+                .to.be.revertedWithCustomError(taskMarketplace, "TaskNotOpen");
         });
     });
 
@@ -498,7 +497,7 @@ describe("TaskMarketplace", function () {
         });
         it("Should not allow non-developer to submit work", async function () {
             await expect(taskMarketplace.connect(auditor1).submitWork(taskId))
-                .to.be.revertedWith("Sender must be a TaskDeveloper");
+                .to.be.revertedWithCustomError(taskMarketplace, "NotTaskDeveloper");
         });
         it("Should allow provider to accept work", async function () {
             await taskMarketplace.connect(developer).submitWork(taskId);
@@ -557,12 +556,12 @@ describe("TaskMarketplace", function () {
             });
             it("Should not allow to vote in wrong state", async function () {
                 await expect(taskMarketplace.connect(auditor1).submitAuditVote(taskId, true))
-                    .to.be.revertedWith("Task not disputed");
+                    .to.be.revertedWithCustomError(taskMarketplace, "TaskNotDisputed");
             });
             it("Should not allow provider to vote", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await expect(taskMarketplace.connect(provider).submitAuditVote(taskId, true))
-                    .to.be.revertedWith("Sender must be a TaskAuditor");
+                    .to.be.revertedWithCustomError(taskMarketplace, "NotTaskAuditor");
             });
             it("Should allow auditors to vote", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
@@ -573,13 +572,13 @@ describe("TaskMarketplace", function () {
             it("Should not allow non-auditors to vote", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await expect(taskMarketplace.connect(developer).submitAuditVote(taskId, true))
-                    .to.be.revertedWith("Sender must be a TaskAuditor");
+                    .to.be.revertedWithCustomError(taskMarketplace, "NotTaskAuditor");
             });
             it("Should not allow voting twice", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await taskMarketplace.connect(auditor1).submitAuditVote(taskId, true);
                 await expect(taskMarketplace.connect(auditor1).submitAuditVote(taskId, true))
-                    .to.be.revertedWith("Already voted");
+                    .to.be.revertedWithCustomError(taskMarketplace, "AlreadyVoted");
             });
             it("Should resolve dispute after three votes", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
@@ -593,7 +592,7 @@ describe("TaskMarketplace", function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
                 await time.increase(time.duration.weeks(1) + 1);
                 await expect(taskMarketplace.connect(auditor1).submitAuditVote(taskId, true))
-                    .to.be.revertedWith("Voting period has ended");
+                    .to.be.revertedWithCustomError(taskMarketplace, "VotingPeriodEnded");
             });
             it("Should set votesFor to 1", async function () {
                 await taskMarketplace.connect(provider).initiateDispute(taskId);
@@ -675,7 +674,7 @@ describe("TaskMarketplace", function () {
 
         it("Should not allow non-provider to update deadline", async function () {
             await expect(taskMarketplace.connect(developer).updateTaskDeadline(taskId, deadline + 3600))
-                .to.be.revertedWith("Sender must be a TaskProvider");
+                .to.be.revertedWithCustomError(taskMarketplace, "NotTaskProvider");
         });
 
         it("Should not allow updating deadline of started task", async function () {

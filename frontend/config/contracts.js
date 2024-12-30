@@ -1,4 +1,4 @@
-export const TASK_MARKETPLACE_ADDRESS = "0x851356ae760d987E095750cCeb3bC6014560891C";
+export const TASK_MARKETPLACE_ADDRESS = "0xe4D32994576a9FabcB92571EDaEa7B23F084A124";
 export const TASK_MARKETPLACE_ABI = [
   {
     "inputs": [
@@ -28,7 +28,167 @@ export const TASK_MARKETPLACE_ABI = [
   },
   {
     "inputs": [],
+    "name": "AddressAlreadyHasSBT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "AlreadyApplied",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "AlreadyVoted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DeadlinePassed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DeveloperNotApplied",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DeveloperNotAssigned",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EmptyDescription",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EmptyTitle",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidAchievementAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidDeadline",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidRedflagAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidReward",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidRoleForWithdrawal",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSBTAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTaskParameters",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTreasuryAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxAuditorsReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxDevelopersReached",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NoDeveloperCandidates",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotEnoughAuditors",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotTaskAuditor",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotTaskDeveloper",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotTaskProvider",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PaymentMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PaymentWithdrawalFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ProtocolFeeTransferFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TaskNotCompleted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TaskNotDisputed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TaskNotInProgress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TaskNotOpen",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "VotingPeriodEnded",
     "type": "error"
   },
   {
@@ -294,7 +454,7 @@ export const TASK_MARKETPLACE_ABI = [
       },
       {
         "indexed": false,
-        "internalType": "enum TaskMarketplace.TaskStatus",
+        "internalType": "enum ITaskEvents.TaskStatus",
         "name": "status",
         "type": "uint8"
       }
@@ -532,14 +692,14 @@ export const TASK_MARKETPLACE_ABI = [
         "type": "string"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "_deadline",
-        "type": "uint256"
+        "type": "uint32"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint96",
         "name": "_reward",
-        "type": "uint256"
+        "type": "uint96"
       }
     ],
     "name": "createTask",
@@ -732,6 +892,41 @@ export const TASK_MARKETPLACE_ABI = [
             "type": "uint256"
           },
           {
+            "internalType": "uint96",
+            "name": "reward",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "auditorReward",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "developerReward",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint32",
+            "name": "deadline",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "votingDeadline",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "votesCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "address",
+            "name": "escrowAddress",
+            "type": "address"
+          },
+          {
             "internalType": "address",
             "name": "provider",
             "type": "address"
@@ -757,44 +952,9 @@ export const TASK_MARKETPLACE_ABI = [
             "type": "string"
           },
           {
-            "internalType": "uint256",
-            "name": "reward",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "auditorReward",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "developerReward",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum TaskMarketplace.TaskStatus",
+            "internalType": "enum ITaskEvents.TaskStatus",
             "name": "status",
             "type": "uint8"
-          },
-          {
-            "internalType": "address",
-            "name": "escrowAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "deadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "votingDeadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "votesCount",
-            "type": "uint256"
           }
         ],
         "internalType": "struct TaskMarketplace.Task[]",
@@ -816,14 +976,14 @@ export const TASK_MARKETPLACE_ABI = [
     "name": "getVoteStatus",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "votesFor",
-        "type": "uint256"
+        "type": "uint32"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "totalVotes",
-        "type": "uint256"
+        "type": "uint32"
       },
       {
         "internalType": "bool",
@@ -1009,6 +1169,41 @@ export const TASK_MARKETPLACE_ABI = [
         "type": "uint256"
       },
       {
+        "internalType": "uint96",
+        "name": "reward",
+        "type": "uint96"
+      },
+      {
+        "internalType": "uint96",
+        "name": "auditorReward",
+        "type": "uint96"
+      },
+      {
+        "internalType": "uint96",
+        "name": "developerReward",
+        "type": "uint96"
+      },
+      {
+        "internalType": "uint32",
+        "name": "deadline",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "votingDeadline",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "votesCount",
+        "type": "uint32"
+      },
+      {
+        "internalType": "address",
+        "name": "escrowAddress",
+        "type": "address"
+      },
+      {
         "internalType": "address",
         "name": "provider",
         "type": "address"
@@ -1029,44 +1224,9 @@ export const TASK_MARKETPLACE_ABI = [
         "type": "string"
       },
       {
-        "internalType": "uint256",
-        "name": "reward",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "auditorReward",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "developerReward",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum TaskMarketplace.TaskStatus",
+        "internalType": "enum ITaskEvents.TaskStatus",
         "name": "status",
         "type": "uint8"
-      },
-      {
-        "internalType": "address",
-        "name": "escrowAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "deadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "votingDeadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "votesCount",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1080,9 +1240,9 @@ export const TASK_MARKETPLACE_ABI = [
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint32",
         "name": "deadline",
-        "type": "uint256"
+        "type": "uint32"
       }
     ],
     "name": "updateTaskDeadline",
@@ -1105,7 +1265,7 @@ export const TASK_MARKETPLACE_ABI = [
   }
 ];
 
-export const SBT_ROLE_ADDRESS = "0x9E545E3C0baAB3E08CdfD552C960A1050f373042";
+export const SBT_ROLE_ADDRESS = "0xafc2180c38a3dB07a3a2CD05cb1B469255FBA51f";
 export const SBT_ROLE_ABI = [
     {
       "inputs": [],
@@ -1785,7 +1945,7 @@ export const SBT_ROLE_ABI = [
     }
 ];
 
-export const TREASURY_ADDRESS = "0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB";
+export const TREASURY_ADDRESS = "0xEAc42Db7A9dc41252cfE206FeBfb613A9C3afBCc";
 export const TREASURY_ABI = [
     {
       "inputs": [],
@@ -2047,7 +2207,7 @@ export const TREASURY_ABI = [
     }
 ];
 
-export const SBT_ACHIEVEMENT_ADDRESS = "0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9";
+export const SBT_ACHIEVEMENT_ADDRESS = "0x774b25744EAD89E458a29F3976747e6a2f76C4c6";
 export const SBT_ACHIEVEMENT_ABI = [
     {
       "inputs": [],
@@ -2720,7 +2880,7 @@ export const SBT_ACHIEVEMENT_ABI = [
     }
 ];
 
-export const SBT_REDFLAG_ADDRESS = "0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8";
+export const SBT_REDFLAG_ADDRESS = "0xcCbb252A0C948a3124c8346f92ffD67e2362D4e1";
 export const SBT_REDFLAG_ABI = [
     {
       "inputs": [],
@@ -3717,4 +3877,4 @@ export const TASK_ESCROW_ABI = [
     "stateMutability": "nonpayable",
     "type": "function"
   }
-]
+];
