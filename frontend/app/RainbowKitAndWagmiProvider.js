@@ -1,30 +1,14 @@
 "use client";
-import "@rainbow-me/rainbowkit/styles.css";
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
-import { hardhat , sepolia, polygon, polygonAmoy } from "wagmi/chains";
-// import { sepolia, hardhat, polygon } from "@/utils/sepolia";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import "@rainbow-me/rainbowkit/styles.css";
+import { sepolia } from "@/utils/sepolia";
+import { WagmiProvider } from "wagmi";
 
 const config = getDefaultConfig({
   appName: "OpenTask",
   projectId: "9292829e9db6cbc5a6dd8e50334ed502",
-  chains: [
-    {
-      ...hardhat,
-      rpcUrls: {
-        default: {
-          http: ['http://127.0.0.1:8545'],
-        },
-        public: {
-          http: ['http://127.0.0.1:8545'],
-        },
-      },
-    },
-    sepolia,
-    polygon,
-    polygonAmoy
-  ],
+  chains: [sepolia],
   ssr: true
 });
 

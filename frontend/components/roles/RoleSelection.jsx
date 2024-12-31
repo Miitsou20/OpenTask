@@ -38,7 +38,7 @@ const RoleSelection = () => {
           duration: 5000,
         });
         setHasToken(true);
-        setTimeout(() => window.location.reload(), 2000);
+        setTimeout(() => window.location.reload(), 1000);
       }
     },
   });
