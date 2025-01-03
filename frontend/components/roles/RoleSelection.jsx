@@ -17,8 +17,8 @@ const RoleSelection = () => {
 
   const roles = [
     { id: 0, name: "Task Provider", description: "Create and manage tasks", icon: "🏢" },
-    { id: 1, name: "Developer", description: "Complete tasks and earn rewards", icon: "👨‍💻" },
-    { id: 2, name: "Auditor", description: "Review and validate work", icon: "🔍" }
+    { id: 1, name: "Task Executor", description: "Complete tasks and earn rewards", icon: "👨‍💻" },
+    { id: 2, name: "Task Auditor", description: "Review and validate work", icon: "🔍" }
   ];
 
   const { isLoading: isRequestingSBT, isSuccess: isSBTMinted } = useWaitForTransactionReceipt({
