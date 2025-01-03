@@ -27,14 +27,14 @@ const DeveloperStats = ({ address }) => {
     const { data: completedTasks } = useReadContract({
         address: SBT_ACHIEVEMENT_ADDRESS,
         abi: SBT_ACHIEVEMENT_ABI,
-        functionName: 'getCompletedTaskCount',
+        functionName: 'getCompletedTasks',
         args: [address],
     });
 
     const { data: redFlags } = useReadContract({
         address: SBT_REDFLAG_ADDRESS,
         abi: SBT_REDFLAG_ABI,
-        functionName: 'getRedFlagCount',
+        functionName: 'getDisputeHistory',
         args: [address],
     });
 
@@ -47,7 +47,7 @@ const DeveloperStats = ({ address }) => {
         </div>
         <div className="flex items-center">
             <Badge variant="secondary" className="bg-red-100">
-            ⚠ {Number(redFlags || 0)} Flags
+            ⚠ {Number(redFlags?.[1] || 0)} Disputes
             </Badge>
         </div>
         </div>
