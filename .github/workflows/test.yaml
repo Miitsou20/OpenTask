@@ -1,0 +1,32 @@
+name: unit-test
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  hardhat-test:
+    runs-on: ubuntu-latest
+    name: Hardhat unit test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm install
+      - name: Create local network & deploy contracts
+        run: npx hardhat node && npx hardhat run scripts/deploy.js --network localhost
+      - name: Test
+        run: npx hardhat test
+
+  slither-audit:
+    runs-on: ubuntu-latest
+    name: Slither
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Slither
+        uses: slither-audit/slither-action@v4
+        with:
+          slither-config: ./backend/slither.config.json
