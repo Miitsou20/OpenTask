@@ -30,4 +30,4 @@ jobs:
         run: cd backend && npm install
       - name: Slither
         shell: bash
-        run: cd backend && npx slither .
+        run: cd backend && slither .
