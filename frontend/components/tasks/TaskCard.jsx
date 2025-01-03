@@ -22,7 +22,6 @@ const TaskCard = ({ task, userRole }) => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getDeveloperCandidates',
     args: [task.id],
-    watch: false,
     enabled: userRole === 1,
   });
 
@@ -31,7 +30,6 @@ const TaskCard = ({ task, userRole }) => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTaskAuditors',
     args: [task.id],
-    watch: false,
     enabled: userRole === 2,
   });
 

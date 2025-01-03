@@ -15,7 +15,6 @@ const AuditorDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getAllAuditorTasks',
     args: [address],
-    watch: true,
     enabled: !!address,
   });
 
@@ -24,7 +23,6 @@ const AuditorDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [[appliedTaskIds]],
-    watch: false,
     enabled: appliedTaskIds && appliedTaskIds.length > 0,
   });
 

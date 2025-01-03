@@ -29,7 +29,6 @@ const DeveloperStats = ({ address }) => {
         abi: SBT_ACHIEVEMENT_ABI,
         functionName: 'getCompletedTaskCount',
         args: [address],
-        watch: false,
     });
 
     const { data: redFlags } = useReadContract({
@@ -37,7 +36,6 @@ const DeveloperStats = ({ address }) => {
         abi: SBT_REDFLAG_ABI,
         functionName: 'getRedFlagCount',
         args: [address],
-        watch: false,
     });
 
     return (
@@ -81,7 +79,6 @@ const TaskPage = ({ params }) => {
         abi: TASK_MARKETPLACE_ABI,
         functionName: 'getTasksDetails',
         args: [[taskId]],
-        watch: true,
     });
 
     const task = taskDetails?.[0];
@@ -368,7 +365,6 @@ const TaskPage = ({ params }) => {
         abi: TASK_MARKETPLACE_ABI,
         functionName: 'auditVotes',
         args: [taskId, address],
-        watch: true,
         enabled: !!address && (Number(task?.status) === 3 || Number(task?.status) === 6 || Number(task?.status) === 7) && isAuditor,
     });
 
@@ -453,21 +449,20 @@ const TaskPage = ({ params }) => {
         abi: TASK_ESCROW_ABI,
         functionName: 'hasWithdrawn',
         args: [address],
-        watch: true,
         enabled: !!task?.escrowAddress && !!address && Number(task?.status) === 4 && isAssignedDeveloper,
     });
 
     const { data: escrowBalance, refetch: refetchEscrowBalance } = useBalance({
         address: task?.escrowAddress,
-        watch: true,
-        enabled: task?.escrowAddress !== ZERO_ADDRESS,
+        enabled: !!task?.escrowAddress && task?.escrowAddress !== ZERO_ADDRESS,
     });
+    console.log("escrowBalance", escrowBalance);
+    console.log("task?.escrowAddress", task?.escrowAddress);
 
     const { data: developerReward } = useReadContract({
         address: task?.escrowAddress,
         abi: TASK_ESCROW_ABI,
         functionName: 'developerReward',
-        watch: true,
         enabled: !!task?.escrowAddress,
     });
 
@@ -475,7 +470,6 @@ const TaskPage = ({ params }) => {
         address: task?.escrowAddress,
         abi: TASK_ESCROW_ABI,
         functionName: 'auditorReward',
-        watch: true,
         enabled: !!task?.escrowAddress,
     });
 
@@ -875,7 +869,7 @@ const TaskPage = ({ params }) => {
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700 dark:text-gray-300">Contract Balance:</span>
-                                        <span>{escrowBalance ? formatEther(escrowBalance.value) : '0'} ETH</span>
+                                        <span>{escrowBalance && task?.escrowAddress !== ZERO_ADDRESS ? formatEther(escrowBalance.value) : '0'} ETH</span>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <span className="font-medium text-gray-700 dark:text-gray-300">Developer Reward:</span>

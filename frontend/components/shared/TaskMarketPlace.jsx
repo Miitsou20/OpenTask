@@ -15,7 +15,6 @@ const TaskMarketPlace = () => {
     abi: SBT_ROLE_ABI,
     functionName: 'getRole',
     args: [address],
-    watch: false,
     enabled: !!address
   });
 
@@ -23,7 +22,6 @@ const TaskMarketPlace = () => {
     address: TASK_MARKETPLACE_ADDRESS,
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'taskCount',
-    watch: false,
   });
 
   const lastTenTaskIds = useMemo(() => {
@@ -38,7 +36,6 @@ const TaskMarketPlace = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [lastTenTaskIds],
-    watch: false,
     enabled: lastTenTaskIds.length > 0,
   });
 

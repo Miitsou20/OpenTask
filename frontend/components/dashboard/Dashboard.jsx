@@ -15,7 +15,6 @@ function Dashboard() {
         abi: SBT_ROLE_ABI,
         functionName: 'getRole',
         args: [address],
-        watch: false,
         enabled: !!address
     });
 

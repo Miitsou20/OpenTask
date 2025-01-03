@@ -19,7 +19,6 @@ const ProviderDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getAllProviderTasks',
     args: [address],
-    watch: true,
     enabled: !!address,
   });
 
@@ -28,7 +27,6 @@ const ProviderDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [taskIds || []],
-    watch: false,
     enabled: !!taskIds && taskIds.length > 0,
   });
 

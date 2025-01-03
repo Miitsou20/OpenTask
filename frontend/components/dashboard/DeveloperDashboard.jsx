@@ -39,7 +39,6 @@ const DeveloperDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getAllDeveloperTasks',
     args: [address],
-    watch: true,
     enabled: !!address,
   });
 
@@ -53,7 +52,6 @@ const DeveloperDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [appliedTaskIds],
-    watch: false,
     enabled: appliedTaskIds && appliedTaskIds.length > 0,
   });
 
@@ -62,7 +60,6 @@ const DeveloperDashboard = () => {
     abi: TASK_MARKETPLACE_ABI,
     functionName: 'getTasksDetails',
     args: [assignedTaskIds],
-    watch: false,
     enabled: assignedTaskIds && assignedTaskIds.length > 0,
   });
 

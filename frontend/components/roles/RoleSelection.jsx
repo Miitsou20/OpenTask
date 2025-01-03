@@ -70,7 +70,6 @@ const RoleSelection = () => {
     abi: SBT_ROLE_ABI,
     functionName: 'hasToken',
     args: [address],
-    watch: true,
     pollingInterval: 3000,
   });
 
