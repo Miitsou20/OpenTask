@@ -56,8 +56,11 @@ const ProviderDashboard = () => {
     return tasksDetails.reduce((stats, task) => {
       if (task.status === 1 || task.status === 2 || task.status === 3) {
         stats.activeTasks++;
-      } else if (task.status === 4) {
+      } else if (task.status === 4 || task.status === 6 || task.status === 7) {
         stats.completedTasks++;
+        stats.totalSpent += Number(task.reward);
+      }
+      else if (task.status !== 0) {
         stats.totalSpent += Number(task.reward);
       }
       return stats;

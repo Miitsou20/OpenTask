@@ -460,7 +460,7 @@ const TaskPage = ({ params }) => {
     const { data: escrowBalance, refetch: refetchEscrowBalance } = useBalance({
         address: task?.escrowAddress,
         watch: true,
-        enabled: !!task?.escrowAddress,
+        enabled: task?.escrowAddress !== ZERO_ADDRESS,
     });
 
     const { data: developerReward } = useReadContract({
