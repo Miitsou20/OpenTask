@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: cd backend && npm install
       - name: Test
-        run: cd backend && npx hardhat test
+        run: cd backend && npx hardhat test --network localhost
 
   slither-audit:
     runs-on: ubuntu-latest
@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Install dependencies
         shell: bash
-        run: cd backend && npm install
+        run: cd backend && python3 -m pip install slither-analyzer
       - name: Slither
         shell: bash
         run: cd backend && slither .
