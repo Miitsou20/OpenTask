@@ -9,6 +9,11 @@ jobs:
   hardhat-test:
     runs-on: ubuntu-latest
     name: Hardhat unit test
+    env:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
 
     steps:
       - name: Checkout
@@ -23,11 +28,5 @@ jobs:
     runs-on: ubuntu-latest
     name: Slither
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install dependencies
-        shell: bash
-        run: cd backend && npm install && python3 -m pip install slither-analyzer
-      - name: Slither
-        shell: bash
-        run: cd backend && slither .
+      - uses: actions/checkout@v4
+      - uses: crytic/slither-action@v0.4.0
