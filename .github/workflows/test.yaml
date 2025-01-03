@@ -2,6 +2,7 @@ name: unit-test
 on:
   push:
     branches:
+      - main
       - dev
 
 jobs:
