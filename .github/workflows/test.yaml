@@ -26,6 +26,12 @@ jobs:
   slither-audit:
     runs-on: ubuntu-latest
     name: Slither
+    env:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
