@@ -16,9 +16,6 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: cd backend && npm install
-      - name: Create local network & deploy contracts
-        shell: bash
-        run: cd backend && npx hardhat node && npx hardhat run scripts/deploy.js --network localhost
       - name: Test
         run: cd backend && npx hardhat test
 
@@ -28,6 +25,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Install dependencies
+        shell: bash
+        run: cd backend && npm install
       - name: Slither
         shell: bash
         run: cd backend && npx slither .
