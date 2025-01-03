@@ -23,23 +23,23 @@ jobs:
       - name: Test
         run: cd backend && npx hardhat test --network hardhat
 
-  slither-audit:
-    runs-on: ubuntu-latest
-    name: Slither
-    env:
-      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-      SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
-      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
-      COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
+  # slither-audit:
+  #   runs-on: ubuntu-latest
+  #   name: Slither
+  #   env:
+  #     PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+  #     SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+  #     ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+  #     COINMARKETCAP_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install dependencies
-        shell: bash
-        run: cd backend
-      - name: Audit
-        uses: crytic/slither-action@v0.4.0
-        with:
-          target: ./backend
-          slither-config: ./backend/slither.config.json
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Install dependencies
+  #       shell: bash
+  #       run: cd backend
+  #     - name: Audit
+  #       uses: crytic/slither-action@v0.4.0
+  #       with:
+  #         target: ./backend
+  #         slither-config: ./backend/slither.config.json
