@@ -2,7 +2,6 @@ name: unit-test
 on:
   push:
     branches:
-      - main
       - dev
 
 jobs:
@@ -33,7 +32,7 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: cd backend
-      - name: Slither
-     uses: crytic/slither-action@v0.4.0
+      - name: Audit
+        uses: crytic/slither-action@v0.4.0
         with:
           slither-config: ./backend/slither.config.json
