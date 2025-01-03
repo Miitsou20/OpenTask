@@ -2,7 +2,6 @@ name: unit-test
 on:
   push:
     branches:
-      - main
       - dev
 
 jobs:
@@ -30,3 +29,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: crytic/slither-action@v0.4.0
+        with:
+          slither-config: ./backend/slither.config.json
