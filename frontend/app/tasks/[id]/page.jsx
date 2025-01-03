@@ -456,8 +456,6 @@ const TaskPage = ({ params }) => {
         address: task?.escrowAddress,
         enabled: !!task?.escrowAddress && task?.escrowAddress !== ZERO_ADDRESS,
     });
-    console.log("escrowBalance", escrowBalance);
-    console.log("task?.escrowAddress", task?.escrowAddress);
 
     const { data: developerReward } = useReadContract({
         address: task?.escrowAddress,
